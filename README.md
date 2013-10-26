@@ -1,4 +1,6 @@
-codeofwar2013
-=============
+PlanetWarsSDK_JS
+================
 
-IA pour Bot de Code of War édition 2013 : http://www.tamina-online.com/expantion-origin/
+JavaScript SDK for Expantion Origin
+
+more info : http://www.tamina-online.com/expantion-origin
