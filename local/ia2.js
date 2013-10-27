@@ -69,10 +69,21 @@ var getOrders = function(context) {
 	
 	improveModel();
 	
-	// TODO: scoring et ordres de défenses (gestion de capacité de flotte pour gérer les attaques ensuite)
+	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
+		computeMyPlanetsUnderAttackAtRangeInTurn( predictionTurn );
+		scoreMyPlanetsForTurn( predictionTurn );
+	}
+
+	IA.myPlanets.sort(compareScore);
+	
+	var target = getFirstLost(IA.myPlanets);
+	if (target != undefined) {
+		result = result.concat(defenseOrders(target));
+	}
+
 	
 	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
-		var planetsInRange = getPlanetsAtRangeInTurn( predictionTurn );
+		var planetsInRange = getTargetsAtRangeInTurn( predictionTurn );
 		scorePlanetsForTurn( predictionTurn, planetsInRange );
 	}
 	
@@ -133,7 +144,7 @@ var getFirstCaptured = function (targets) {
 	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
 		for (var index in targets) {
 			var current = targets[index];
-			if(current.predictions[predictionTurn].score > 0) {
+			if(current.predictions[predictionTurn].capture) {
 				return current;
 			}
 		}
@@ -142,35 +153,75 @@ var getFirstCaptured = function (targets) {
 	return targets[0];
 }
 
+var getFirstLost = function (targets) {
+	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
+		for (var index in targets) {
+			var current = targets[index];
+			if(current.predictions[predictionTurn].lost) {
+				return current;
+			}
+		}
+	}
+	
+	return undefined;
+}
+
 var attackOrders = function(target) {
 	var orders = [];
 	
 	// TODO: identifier le tour de capture et commencer par les planètes à cette portée, puis diminuer la portée -> évite les dépassements de population.
-	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
-		target.population += Game.PLANET_GROWTH;
+	/*
+	var captureTurn = getCaptureTurn(target);
+	target.capacity += captureTurn * Game.PLANET_GROWTH;
+	
+	for ( var predictionTurn = captureTurn; predictionTurn >= IA.START_PREDICTION_TURN_COUNT; predictionTurn--) {
+	*/
 		
+	
+	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
+		target.capacity += Game.PLANET_GROWTH;
+	
 		var myPlanetsInRange = getAllyPlanetsAtRangeInTurnForPlanet(predictionTurn, target);
 		for (var index in myPlanetsInRange) {
 			var myPlanet = myPlanetsInRange[index];
 			
-			var fleet = 0;
-			if (myPlanet.population > target.population) {
-				fleet = target.population + 1;
-			} else {
-				fleet = myPlanet.population;
-			}
-			
-			if (fleet > (PlanetPopulation.getMaxPopulation(target.size) + 1)) {
-				fleet = PlanetPopulation.getMaxPopulation(target.size) + 1;
-			}
-			
+			var fleet = getAvailableFleet(myPlanet, target.capacity + 1);
 			if (fleet > 0) {
 				orders.push(new Order( myPlanet.id, target.id, fleet));
-				myPlanet.population -= fleet;
-				target.population -= fleet;
+				takeFleet(myPlanet, fleet);
+				takeFleet(target, fleet);
 			}
 			
-			if (target.population < 0) {
+			if (target.capacity < 0) {
+				return orders;
+			}
+		}
+	}
+	
+	return [];
+}
+
+var defenseOrders = function(target) {
+	
+	var orders = [];
+	
+	var lostTurn = getLostTurn(target);
+	var totalCapacity = target.capacity + lostTurn * Game.PLANET_GROWTH;
+	takeFleet(target, target.capacity);
+	
+	for ( var predictionTurn = lostTurn; predictionTurn >= IA.START_PREDICTION_TURN_COUNT; predictionTurn--) {
+		var myPlanetsInRange = getAllyPlanetsAtRangeInTurnForPlanet(predictionTurn, target);
+		for (var index in myPlanetsInRange) {
+			var myPlanet = myPlanetsInRange[index];
+			
+			var fleet = getAvailableFleet(myPlanet, target.capacity + 1);
+			if (fleet > 0) {
+				orders.push(new Order( myPlanet.id, target.id, fleet));
+				takeFleet(myPlanet, fleet);
+				totalCapacity += fleet;
+			}
+			
+			if (totalCapacity > target.predictions[lostTurn].score) {
 				return orders;
 			}
 		}
@@ -183,13 +234,46 @@ var improveModel = function () {
 	var planets = IA.allPlanets;
 	for (var index in planets) {
 		var planet = planets[index];
-		planet.fleetTaken = [];
+		planet.capacity = planet.population;
 		planet.predictions = [];
 		for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
 			planet.predictions[predictionTurn] = {};
 			planet.predictions[predictionTurn].score = 0;
+			planet.predictions[predictionTurn].capture = false;
+			planet.predictions[predictionTurn].attackedBy = 0;
+			planet.predictions[predictionTurn].lost = false;
 		}
 	}
+}
+
+var getAvailableFleet = function (planet, max) {
+	if (planet.capacity > max) {
+		return max;
+	}
+	return planet.capacity;
+}
+
+var takeFleet = function (planet, fleet) {
+	planet.capacity -= fleet;
+	planet.population -= fleet;
+}
+
+var getCaptureTurn = function(planet) {
+	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
+		if (planet.predictions[predictionTurn].capture) {
+			return predictionTurn;
+		}
+	}
+	return IA.PREDICTION_TURN_COUNT;
+}
+
+var getLostTurn = function(planet) {
+	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
+		if (planet.predictions[predictionTurn].lost) {
+			return predictionTurn;
+		}
+	}
+	return -1;
 }
 
 var initShips = function() {
@@ -214,18 +298,48 @@ var scorePlanetsForTurn = function( predictionTurn, planetsInRange) {
 		score += getAllIncomingAllyFleetInRange(predictionTurn, planet);
 
 		if (predictionTurn > IA.START_PREDICTION_TURN_COUNT && planet.predictions[predictionTurn - 1].score > 0) {
-			score += planet.population;
+			score += planet.capacity;
 			score += predictionTurn * Game.PLANET_GROWTH;
 		} else {
-			score -= planet.population;
+			score -= planet.capacity;
 			score -= predictionTurn * Game.PLANET_GROWTH;
 		}
 		
-		// TODO: si vaisseaux ennemis ciblent planètes neutres, alors augmenter le score au lieu de le diminuer.
-		score -= getAllAggressivePlanetsFleetInRange(predictionTurn, planet);
+		if (planet.owner.id == IA.aggressiveId) {
+			score -= getAllAggressivePlanetsFleetInRange(predictionTurn, planet);
+			score -= getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
+		} else {
+			score += getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
+		}
+
+		planet.predictions[predictionTurn].score = score;
+		if (score > 0) {
+			planet.predictions[predictionTurn].capture = true;
+		}
+	}
+}
+
+var scoreMyPlanetsForTurn = function( predictionTurn) {
+	for (var index in IA.myPlanets) {
+		var planet = IA.myPlanets[index];
+
+		var score = getAllPlanetsFleetCapacityInRange(predictionTurn, planet);
+		score += getAllIncomingAllyFleetInRange(predictionTurn, planet);
+
+		/*
+		if (predictionTurn > IA.START_PREDICTION_TURN_COUNT && planet.predictions[predictionTurn - 1].score > 0) {
+			score += predictionTurn * Game.PLANET_GROWTH;
+		} else {
+			score -= predictionTurn * Game.PLANET_GROWTH;
+		}
+		*/
+		
 		score -= getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
 
 		planet.predictions[predictionTurn].score = score;
+		if (score <= 0) {
+			planet.predictions[predictionTurn].lost = true;
+		}
 	}
 }
 
@@ -236,7 +350,7 @@ var getAllPlanetsFleetCapacityInRange = function( predictionTurn, planet) {
 	
 	for (var index in myPlanetsInRange) {
 		var myPlanet = myPlanetsInRange[index];
-		fleet += myPlanet.population + predictionTurn * Game.PLANET_GROWTH;
+		fleet += myPlanet.capacity + predictionTurn * Game.PLANET_GROWTH;
 	}
 	
 	return fleet;
@@ -248,7 +362,7 @@ var getAllIncomingAllyFleetInRange = function( predictionTurn, planet) {
 	var myShips = _getShipsAtRangeInTurnForPlanet(predictionTurn, planet, IA.myShips);
 	for (var index in myShips) {
 		var myShip = myShips[index];
-		if (myShip.target == planet) {
+		if (myShip.target.id == planet.id) {
 			fleet += myShip.crew;
 		}
 	}
@@ -263,7 +377,7 @@ var getAllAggressivePlanetsFleetInRange = function( predictionTurn, planet) {
 	
 	for (var index in aggressivePlanetsInRange) {
 		var myPlanet = aggressivePlanetsInRange[index];
-		fleet += myPlanet.population + predictionTurn * Game.PLANET_GROWTH;
+		fleet += myPlanet.capacity + predictionTurn * Game.PLANET_GROWTH;
 	}
 	
 	return fleet;
@@ -276,7 +390,7 @@ var getAllIncomingAggressiveFleetInRange = function( predictionTurn, planet) {
 	var otherShips = _getShipsAtRangeInTurnForPlanet(predictionTurn, planet, IA.otherShips);
 	for (var index in otherShips) {
 		var otherShip = otherShips[index];
-		if (otherShip.target == planet) {
+		if (otherShip.target.id == planet.id) {
 			fleet += otherShip.crew;
 		}
 	}
@@ -284,7 +398,18 @@ var getAllIncomingAggressiveFleetInRange = function( predictionTurn, planet) {
 	return fleet;
 }
 
-var getPlanetsAtRangeInTurn = function ( wantedRangeInTurn ) {
+var computeMyPlanetsUnderAttackAtRangeInTurn = function (wantedRangeInTUrn) {
+	var otherShips = IA.otherShips;
+	for (var index in otherShips) {
+		var otherShip = otherShips[index];
+		
+		if (otherShip.target.owner.id == id) {
+			otherShip.target.predictions[wantedRangeInTUrn].attackedBy += otherShip.crew;
+		}
+	}
+}
+
+var getTargetsAtRangeInTurn = function ( wantedRangeInTurn ) {
 	var planetsInRange = [];
 
 	var myPlanets = IA.myPlanets;
