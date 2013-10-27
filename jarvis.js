@@ -84,7 +84,8 @@ var getOrders = function(context) {
 	
 	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
 		var planetsInRange = getTargetsAtRangeInTurn( predictionTurn );
-		scorePlanetsForTurn( predictionTurn, planetsInRange );
+		var availableTargets = getNotAlreadyCaptured(planetsInRange);
+		scorePlanetsForTurn( predictionTurn, availableTargets );
 	}
 	
 	IA.aggressivesPlanets.sort(compareScore);
@@ -177,17 +178,19 @@ var attackOrders = function(target) {
 		for (var index in myPlanetsInRange) {
 			var myPlanet = myPlanetsInRange[index];
 			
-			var fleet = getAvailableFleet(myPlanet, getMax(target) + 1);
-			if (fleet > 0) {
-				orders.push(new Order( myPlanet.id, target.id, fleet));
-				takeFleet(myPlanet, fleet);
-				takeFleet(target, fleet);
-			}
-			
 			var limit = target.capacity;
 			if (limit > getMax(target)) {
 				limit = getMax(target);
 			}
+			
+			var fleet = getAvailableFleet(myPlanet, limit + 1);
+			if (fleet > 0) {
+				orders.push(new Order( myPlanet.id, target.id, fleet));
+				takeFleet(myPlanet, fleet);
+				takeFleet(target, fleet);
+				limit -= fleet;
+			}
+			
 			if (limit < 0) {
 				return orders;
 			}
@@ -286,6 +289,36 @@ var initShips = function() {
 	}
 }
 
+var getNotAlreadyCaptured = function( planetsInRange) {
+	var notAlreadyCaptured = [];
+	for (var index in planetsInRange) {
+		var planet = planetsInRange[index];
+		var score = 0;
+		score -= planet.capacity;
+		
+		for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
+			score += getAllIncomingAllyFleetAtRange(predictionTurn, planet);
+			
+			if (score > 0) {
+				score += Game.PLANET_GROWTH;
+			} else {
+				score -= Game.PLANET_GROWTH;
+			}
+			
+			if (planet.owner.id == IA.aggressiveId) {
+				score -= getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
+			} else {
+				score += getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
+			}
+
+			if (score < 0) {
+				notAlreadyCaptured.push(planet);
+			}
+		}
+	}
+	return notAlreadyCaptured;
+}
+
 var scorePlanetsForTurn = function( predictionTurn, planetsInRange) {
 	for (var index in planetsInRange) {
 		var planet = planetsInRange[index];
@@ -365,6 +398,20 @@ var getAllIncomingAllyFleetInRange = function( predictionTurn, planet) {
 	
 	return fleet;
 }
+var getAllIncomingAllyFleetAtRange = function( predictionTurn, planet) {
+	var fleet = 0;
+	
+	var myShips = _getShipsAtExactRangeInTurnForPlanet(predictionTurn, planet, IA.myShips);
+	for (var index in myShips) {
+		var myShip = myShips[index];
+		if (myShip.target.id == planet.id) {
+			fleet += myShip.crew;
+		}
+	}
+	
+	return fleet;
+}
+
 var getAllAggressivePlanetsFleetInRange = function( predictionTurn, planet) {
 	/*
 	var fleet = 0;
@@ -456,9 +503,23 @@ var _getShipsAtRangeInTurnForPlanet = function ( wantedRangeInTurn, planet, ship
 	return shipsInRange;
 }
 
+var _getShipsAtExactRangeInTurnForPlanet = function ( wantedRangeInTurn, planet, ships ) {
+	var shipsInRange = [];
+
+	for (var index in ships) {
+		var ship = ships[index];
+		var rangeInTurn = getRangeInTurn(planet, ship);
+		if ( rangeInTurn == wantedRangeInTurn ) {
+			shipsInRange.push(ship);
+		}
+	}
+	
+	return shipsInRange;
+}
+
 var getRangeInTurn = function (source, destination) {
 	var distance = GameUtil.getDistanceBetween(source, destination);
-	var rangeInTurn = distance / Game.SHIP_SPEED;
+	var rangeInTurn = Math.ceil(distance / Game.SHIP_SPEED);
 	
 	return rangeInTurn;
 }
