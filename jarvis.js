@@ -202,7 +202,7 @@ var defenseOrders = function(target) {
 	var orders = [];
 	
 	var lostTurn = getLostTurn(target);
-	var totalCapacity = target.capacity + lostTurn * Game.PLANET_GROWTH;
+	var totalCapacity = target.capacity + (lostTurn - 1) * Game.PLANET_GROWTH;
 	takeFleet(target, target.capacity);
 	
 	for ( var predictionTurn = lostTurn; predictionTurn >= IA.START_PREDICTION_TURN_COUNT; predictionTurn--) {
@@ -217,7 +217,7 @@ var defenseOrders = function(target) {
 				totalCapacity += fleet;
 			}
 			
-			if (totalCapacity > target.predictions[lostTurn].score) {
+			if ((totalCapacity > getMax(target)) || (totalCapacity + target.predictions[lostTurn].score) > 0) {
 				return orders;
 			}
 		}
