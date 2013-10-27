@@ -169,30 +169,26 @@ var getFirstLost = function (targets) {
 var attackOrders = function(target) {
 	var orders = [];
 	
-	// TODO: identifier le tour de capture et commencer par les planètes à cette portée, puis diminuer la portée -> évite les dépassements de population.
-	/*
 	var captureTurn = getCaptureTurn(target);
 	target.capacity += captureTurn * Game.PLANET_GROWTH;
 	
 	for ( var predictionTurn = captureTurn; predictionTurn >= IA.START_PREDICTION_TURN_COUNT; predictionTurn--) {
-	*/
-		
-	
-	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
-		target.capacity += Game.PLANET_GROWTH;
-	
 		var myPlanetsInRange = getAllyPlanetsAtRangeInTurnForPlanet(predictionTurn, target);
 		for (var index in myPlanetsInRange) {
 			var myPlanet = myPlanetsInRange[index];
 			
-			var fleet = getAvailableFleet(myPlanet, target.capacity + 1);
+			var fleet = getAvailableFleet(myPlanet, getMax(target) + 1);
 			if (fleet > 0) {
 				orders.push(new Order( myPlanet.id, target.id, fleet));
 				takeFleet(myPlanet, fleet);
 				takeFleet(target, fleet);
 			}
 			
-			if (target.capacity < 0) {
+			var limit = target.capacity;
+			if (limit > getMax(target)) {
+				limit = getMax(target);
+			}
+			if (limit < 0) {
 				return orders;
 			}
 		}
@@ -466,6 +462,27 @@ var getRangeInTurn = function (source, destination) {
 	
 	return rangeInTurn;
 }
+
+var getMax = function (planet) {
+	return PlanetPopulation.getMaxPopulation(planet.size);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 var getNearestPlanet = function( source, candidats )
 	{
