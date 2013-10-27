@@ -69,6 +69,8 @@ var getOrders = function(context) {
 	
 	improveModel();
 	
+	// TODO: scoring et ordres de défenses (gestion de capacité de flotte pour gérer les attaques ensuite)
+	
 	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
 		var planetsInRange = getPlanetsAtRangeInTurn( predictionTurn );
 		scorePlanetsForTurn( predictionTurn, planetsInRange );
@@ -143,6 +145,7 @@ var getFirstCaptured = function (targets) {
 var attackOrders = function(target) {
 	var orders = [];
 	
+	// TODO: identifier le tour de capture et commencer par les planètes à cette portée, puis diminuer la portée -> évite les dépassements de population.
 	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
 		target.population += Game.PLANET_GROWTH;
 		
@@ -218,6 +221,7 @@ var scorePlanetsForTurn = function( predictionTurn, planetsInRange) {
 			score -= predictionTurn * Game.PLANET_GROWTH;
 		}
 		
+		// TODO: si vaisseaux ennemis ciblent planètes neutres, alors augmenter le score au lieu de le diminuer.
 		score -= getAllAggressivePlanetsFleetInRange(predictionTurn, planet);
 		score -= getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
 
