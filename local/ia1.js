@@ -64,10 +64,15 @@ var getOrders = function(context) {
 	IA.myPlanets = GameUtil.getPlayerPlanets(id, context );
 	IA.otherPlanets = GameUtil.getEnnemyPlanets(id, context);
 	initShips();
-	IA.aggressiveId = getAggressiveId();
+	if (IA.aggressiveId == undefined) {
+		IA.aggressiveId = getAggressiveId();
+	}
 	IA.aggressivesPlanets = getAggressivePlanets();
+	IA.neutralPlanets = getNeutralPlanets();
 	
 	improveModel();
+	
+	// Defense
 	
 	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
 		computeMyPlanetsUnderAttackAtRangeInTurn( predictionTurn );
@@ -77,11 +82,12 @@ var getOrders = function(context) {
 
 	IA.myPlanets.sort(compareScore);
 	
-	var target = getFirstLost(IA.myPlanets);
-	if (target != undefined) {
-		result = result.concat(defenseOrders(target));
+	var myTarget = getFirstLost(IA.myPlanets);
+	if (myTarget != undefined) {
+		result = result.concat(defenseOrders(myTarget));
 	}
 
+	// Attack aggressive
 	
 	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
 		var planetsInRange = getTargetsAtRangeInTurn( predictionTurn );
@@ -96,6 +102,23 @@ var getOrders = function(context) {
 		result = result.concat(attackOrders(target));
 	}
 	
+	// Attack others
+	
+	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
+		var planetsInRange = getNeutralTargetsAtRangeInTurn( predictionTurn );
+		scorePlanetsForTurn( predictionTurn, planetsInRange );
+	}
+	
+	availableTargets = getNotAlreadyCaptured(IA.neutralPlanets);
+	availableTargets.sort(compareScore);
+	
+	if (availableTargets.length > 0) {
+		var target = getFirstCaptured(availableTargets);
+		result = result.concat(attackOrders(target));
+	}
+	
+	// results
+	
 	return result;
 };
 
@@ -103,25 +126,33 @@ var getAggressiveId = function() {
 	if (IA.otherShips.length > 0) {
 		return IA.otherShips[0].owner.id;
 	}
+	return undefined;
+}
 
-	var aggressiveId = IA.otherPlanets[0];
-	var neutralId = IA.otherPlanets[0];
-	
+var getNeutralPlanets = function() {
+	var neutralPlanets = [];
+
 	for (var index in IA.otherPlanets) {
 		var planet = IA.otherPlanets[index];
+		var found = false;
 		
-		if (planet.id != IA.otherPlanets[0].id) {
-			if (planet.owner.id != neutralId) {
-				aggressiveId = planet.owner.id;
-			} else if (planet.owner.id == aggressiveId) {
-				var tmp = aggressiveId;
-				aggressiveId = neutralId;
-				neutralId = tmpl;
+		for (var pIndex in IA.aggressivePlanets) {
+			var aggressive = IA.aggressivePlanets[pIndex];
+			if (planet.id == aggressive.id) {
+				found = true;
 			}
+		}
+		
+		if (!found) {
+			neutralPlanets.push(planet);
 		}
 	}
 	
-	return aggressiveId;
+	if (neutralPlanets.length == 0) {
+		return IA.otherPlanets;
+	}
+	
+	return neutralPlanets;
 }
 
 var getAggressivePlanets = function() {
@@ -130,7 +161,7 @@ var getAggressivePlanets = function() {
 	for (var index in IA.otherPlanets) {
 		var planet = IA.otherPlanets[index];
 		
-		if (planet.owner.id == IA.aggressiveId) {
+		if (planet.owner.id == IA.aggressiveId || IA.aggressiveId < 0) {
 			aggressivePlanets.push(planet);
 		}
 	}
@@ -459,8 +490,13 @@ var protectNearPlanets = function() {
 	for (var pIndex in IA.myPlanets) {
 		var planet = IA.myPlanets[pIndex];
 		
-		if (getAggressivesPlanetsAtRangeInTurnForPlanet(1, planet)) {
-			takeFleet(planet, 10);
+		var planets = getAggressivesPlanetsAtRangeInTurnForPlanet(2, planet);
+		if (planets.length > 0) {
+			var security = 10 * planets.length;
+			var take = planets.capacity - security;
+			if (take > 0) {
+				takeFleet(planet, take);
+			}
 		}
 	}
 }
@@ -478,8 +514,24 @@ var getTargetsAtRangeInTurn = function ( wantedRangeInTurn ) {
 	return planetsInRange;
 }
 
+var getNeutralTargetsAtRangeInTurn = function ( wantedRangeInTurn ) {
+	var planetsInRange = [];
+
+	var myPlanets = IA.myPlanets;
+	for (var index in myPlanets) {
+		var myPlanet = myPlanets[index];
+		var others = getNeutralPlanetsAtRangeInTurnForPlanet(wantedRangeInTurn, myPlanet);
+		planetsInRange = planetsInRange.concat(others);
+	}
+
+	return planetsInRange;
+}
+
 var getAllyPlanetsAtRangeInTurnForPlanet = function ( wantedRangeInTurn, planet ) {
 	return _getPlanetsAtRangeInTurnForPlanet(wantedRangeInTurn, planet, IA.myPlanets);
+}
+var getNeutralPlanetsAtRangeInTurnForPlanet = function ( wantedRangeInTurn, planet ) {
+	return _getPlanetsAtRangeInTurnForPlanet(wantedRangeInTurn, planet, IA.neutralPlanets);
 }
 var getAggressivesPlanetsAtRangeInTurnForPlanet = function ( wantedRangeInTurn, planet ) {
 	return _getPlanetsAtRangeInTurnForPlanet(wantedRangeInTurn, planet, IA.aggressivesPlanets);
