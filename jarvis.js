@@ -79,6 +79,7 @@ var getOrders = function(context) {
 		computeMyPlanetsUnderAttackAtRangeInTurn( predictionTurn );
 		scoreMyPlanetsForTurn( predictionTurn );
 	}
+
 	protectNearPlanets();
 
 	IA.myPlanets.sort(compareScore);
@@ -87,8 +88,6 @@ var getOrders = function(context) {
 	if (myTarget != undefined) {
 		result = result.concat(defenseOrders(myTarget));
 	}
-
-	
 
 	// Attack aggressive
 	
@@ -115,7 +114,7 @@ var getOrders = function(context) {
 		var target = getFirstCaptured(availableTargets);
 		result = result.concat(attackOrders(target));
 	}
-	
+
 	// results
 	
 	return result;
@@ -354,36 +353,21 @@ var getNotAlreadyCaptured = function( planetsInRange) {
 	return notAlreadyCaptured;
 }
 
-var scorePlanetsToAttack = function (plantsToAttack) {
+var scorePlanetsToAttack = function (planetsInRange) {
+/*
 	for (var index in planetsInRange) {
 		var planet = planetsInRange[index];
 
 		planet.score = planet.capacity;
-
-		
-		var score = getAllPlanetsFleetCapacityInRange(predictionTurn, planet);
-		score += getAllIncomingAllyFleetInRange(predictionTurn, planet);
-
-		if (predictionTurn > IA.START_PREDICTION_TURN_COUNT && planet.predictions[predictionTurn - 1].score > 0) {
-			score += planet.capacity;
-			score += predictionTurn * Game.PLANET_GROWTH;
-		} else {
-			score -= planet.capacity;
-			score -= predictionTurn * Game.PLANET_GROWTH;
-		}
+		planet.score += getAllIncomingAllyFleetInRange(predictionTurn, planet);
 		
 		if (planet.owner.id == IA.aggressiveId) {
-			score -= getAllAggressivePlanetsFleetInRange(predictionTurn, planet);
 			score -= getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
 		} else {
 			score += getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
 		}
-
-		planet.predictions[predictionTurn].score = score;
-		if (score > 0) {
-			planet.predictions[predictionTurn].capture = true;
-		}
 	}
+	*/
 }
 
 var scorePlanetsForTurn = function( predictionTurn, planetsInRange) {
@@ -441,7 +425,7 @@ var scoreMyPlanetsForTurn = function( predictionTurn) {
 
 var getAllPlanetsFleetCapacityInRange = function( predictionTurn, planet) {
 	var fleet = 0;
-	
+
 	var myPlanetsInRange = getAllyPlanetsAtRangeInTurnForPlanet(predictionTurn, planet);
 	
 	for (var index in myPlanetsInRange) {
