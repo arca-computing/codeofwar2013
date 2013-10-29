@@ -37,6 +37,8 @@ onmessage = function(event)
 
 
 var IA = {};
+IA.MAX = 100;
+IA.TURN = -1;
 
 function defenseThenAttack(a,b) {
 	if (a.owner.id != b.owner.id) {
@@ -48,10 +50,10 @@ function defenseThenAttack(a,b) {
 	}
 
 	if (a.attackedBy > b.attackedBy) {
-		return 1;
+		return -1;
 	}
 	if (a.attackedBy < b.attackedBy) {
-		return -1;
+		return 1;
 	}
 
 	return 0;
@@ -64,6 +66,8 @@ function defenseThenAttack(a,b) {
  * @return result:Array<Order>
 */
 var getOrders = function(context) {
+	IA.TURN++;
+	
 	var result = new Array();
 
 	IA.galaxy = context;
@@ -113,13 +117,15 @@ var improveModel = function () {
 		planet.maxRange = -1;
 
 		planet.t = [];
-		for (var i = 0; i < 100; i++) {
-			planet.t.push(0);
-		}
-		if (planet.id == id) {
+		
+		if (planet.owner.id == id) {
 			planet.t[0] = planet.population;
 		} else {
 			planet.t[0] = -1 * planet.population;
+		}
+		
+		for (var i = 1; i <= IA.MAX; i++) {
+			planet.t[i] = 0;
 		}
 
 	}
@@ -130,42 +136,39 @@ var callForFleet = function(target) {
 
 	var score = 0;
 
-	for (var i = 0; i <= target.maxRange; i++) {
+	for (var i = 0; i <= IA.MAX; i++) {
 		score += target.t[i];
-
+		
 		if (score > 0) {
 			score += Game.PLANET_GROWTH;
 		} else {
 			score -= Game.PLANET_GROWTH;
 		}
 
-		if (score <= 0) {
-			var myPlanets = _getAtExactRangeInTurn(i, target, IA.myPlanets);
-			for (var index in myPlanets) {
-				if (score <= 0) {
-					var myPlanet = myPlanets[index];
-					var wanted = score * -1;
-
-					var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
-					if (fleet > 0) {
-						orders.push(new Order(myPlanet.id, target.id, fleet));
-
-						if (planet.owner.id == id) {
-							planet.t[i] += ship.crew;
-							score += fleet;
-						} else {
-							planet.t[i] -= ship.crew;
-							score -= fleet;
-						}
-
-						takeFleet(myPlanet, fleet);
-					}
+		var myPlanets = _getAtExactRangeInTurn(i, target, IA.myPlanets);
+		for (var index in myPlanets) {
+			var myPlanet = myPlanets[index];
+			
+			if (score <= 0 && myPlanet.id != target.id ) {
+				var wanted = Math.abs(score);
+				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+				if (fleet > 0) {
+					orders.push(new Order(myPlanet.id, target.id, fleet));
+					target.t[i] += fleet;
+					score += fleet;
+					takeFleet(myPlanet, fleet);
 				}
 			}
 		}
+		
 	}
 	
-	return orders;
+	if (score > 0) {
+		return orders;
+	} else {
+		resetOrders(orders);
+		return [];
+	}
 }
 
 var getFleet = function (planet, needed, max) {
@@ -185,13 +188,14 @@ var computeState = function(planets) {
 	for (var index in IA.galaxy.fleet) {
 		var ship = IA.galaxy.fleet[index];
 		var planet = getById(planets, ship.target.id);
-		var range = getRangeInTurn(planet, ship);
+		
+		var range = getShipRangeInTurn(ship);
 
 		planet.maxRange = Math.max(planet.maxRange, range);
 
-		if (planet.owner.id == ship.owner.id) {
+		if (planet.owner.id == ship.owner.id && planet.owner.id == id) {
 			planet.t[range] += ship.crew;
-		} else if (planet.owner.id != id) {
+		} else if (planet.owner.id != ship.owner.id && planet.owner.id != id) {
 			planet.t[range] += ship.crew;
 			planet.attackedBy += ship.crew;
 		} else {
@@ -215,12 +219,25 @@ var takeFleet = function (planet, fleet) {
 	planet.capacity -= fleet;
 	planet.population -= fleet;
 }
+var giveBackFleet = function (planet, fleet) {
+	planet.capacity += fleet;
+	planet.population += fleet;
+}
+
+var resetOrders = function (orders) {
+	for (var index in orders) {
+		var order = orders[index];
+		
+		var planet = getById(order.sourceID);
+		giveBackFleet(planet, order.numUnits);
+	}
+}
 
 var _getAtExactRangeInTurn = function ( wantedRangeInTurn, target, collection ) {
 	var inRange = [];
 
 	for (var index in collection) {
-		var item = collection[otherIndex];
+		var item = collection[index];
 		var rangeInTurn = getRangeInTurn(target, item);
 		if ( rangeInTurn == wantedRangeInTurn ) {
 			inRange.push(item);
@@ -235,6 +252,11 @@ var getRangeInTurn = function (source, destination) {
 	var rangeInTurn = Math.ceil(distance / Game.SHIP_SPEED);
 	
 	return rangeInTurn;
+}
+
+var getShipRangeInTurn = function (ship) {
+	var arrivalTurn = ship.creationTurn + ship.travelDuration;
+	return arrivalTurn - IA.TURN;
 }
 
 var getMax = function (planet) {
