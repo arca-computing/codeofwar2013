@@ -38,6 +38,7 @@ onmessage = function(event)
 
 var IA = {};
 IA.START_PREDICTION_TURN_COUNT = 1;
+IA.MAX_RANGE = 25;
 IA.PREDICTION_TURN_COUNT = 10;
 
 function compareScore(a,b) {
@@ -87,13 +88,11 @@ var getOrders = function(context) {
 		result = result.concat(defenseOrders(myTarget));
 	}
 
+	
+
 	// Attack aggressive
 	
-	for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
-		var planetsInRange = getTargetsAtRangeInTurn( predictionTurn );
-		scorePlanetsForTurn( predictionTurn, planetsInRange );
-	}
-	
+	scorePlanetsToAttack(IA.aggressivesPlanets);
 	var availableTargets = getNotAlreadyCaptured(IA.aggressivesPlanets);
 	availableTargets.sort(compareScore);
 	
@@ -323,21 +322,16 @@ var initShips = function() {
 
 var getNotAlreadyCaptured = function( planetsInRange) {
 	var notAlreadyCaptured = [];
+
 	for (var index in planetsInRange) {
 		var planet = planetsInRange[index];
 		var score = 0;
 		score -= planet.capacity;
 		
-		for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT; predictionTurn <= IA.PREDICTION_TURN_COUNT; predictionTurn++) {
+		for ( var predictionTurn = IA.START_PREDICTION_TURN_COUNT - 1; predictionTurn <= IA.MAX_RANGE; predictionTurn++) {
 			score += getAllIncomingAllyFleetAtRange(predictionTurn, planet);
 			
 			score -= Game.PLANET_GROWTH;
-			
-			if (score > getMax(planet)) {
-				score = getMax(planet);
-			} else if (score < getMax(planet) * -1) {
-				score = getMax(planet) * -1;
-			}
 			
 			if (planet.owner.id == IA.aggressiveId) {
 				score -= getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
@@ -345,12 +339,51 @@ var getNotAlreadyCaptured = function( planetsInRange) {
 				score += getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
 			}
 
-			if (score < 0) {
-				notAlreadyCaptured.push(planet);
+			if (score > getMax(planet) + 1) {
+				score = getMax(planet) + 1;
+			} else if (score < ((getMax(planet) * -1) - 1)) {
+				score = (getMax(planet) * -1) - 1;
 			}
 		}
+
+		if (score < 0) {
+			notAlreadyCaptured.push(planet);
+		}
 	}
+
 	return notAlreadyCaptured;
+}
+
+var scorePlanetsToAttack = function (plantsToAttack) {
+	for (var index in planetsInRange) {
+		var planet = planetsInRange[index];
+
+		planet.score = planet.capacity;
+
+		
+		var score = getAllPlanetsFleetCapacityInRange(predictionTurn, planet);
+		score += getAllIncomingAllyFleetInRange(predictionTurn, planet);
+
+		if (predictionTurn > IA.START_PREDICTION_TURN_COUNT && planet.predictions[predictionTurn - 1].score > 0) {
+			score += planet.capacity;
+			score += predictionTurn * Game.PLANET_GROWTH;
+		} else {
+			score -= planet.capacity;
+			score -= predictionTurn * Game.PLANET_GROWTH;
+		}
+		
+		if (planet.owner.id == IA.aggressiveId) {
+			score -= getAllAggressivePlanetsFleetInRange(predictionTurn, planet);
+			score -= getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
+		} else {
+			score += getAllIncomingAggressiveFleetInRange(predictionTurn, planet);
+		}
+
+		planet.predictions[predictionTurn].score = score;
+		if (score > 0) {
+			planet.predictions[predictionTurn].capture = true;
+		}
+	}
 }
 
 var scorePlanetsForTurn = function( predictionTurn, planetsInRange) {
