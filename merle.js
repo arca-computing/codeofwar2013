@@ -49,14 +49,7 @@ function defenseThenAttack(a,b) {
 		}
 	}
 
-	if (a.attackedBy > b.attackedBy) {
-		return -1;
-	}
-	if (a.attackedBy < b.attackedBy) {
-		return 1;
-	}
-
-	return 0;
+	return a.distance - b.distance;
 }
 
 /**
@@ -83,11 +76,21 @@ var getOrders = function(context) {
 
 	computeState(IA.allPlanets);
 	IA.allPlanets.sort(defenseThenAttack);
+	
+	var candidates = [];
 	for (var index in IA.allPlanets) {
 		var target = IA.allPlanets[index];
-		result = result.concat(callForFleet(target));
+		if (callForCandidates(target)) {
+			candidates.push(target);
+		}
 	}
 
+	candidates.sort(defenseThenAttack);
+	for (var index in candidates) {
+		var target = candidates[index];
+		result = result.concat(callForFleet(target));
+	}
+	
 	// results
 	
 	return result;
@@ -111,10 +114,11 @@ var improveModel = function () {
 	var planets = IA.allPlanets;
 	for (var index in planets) {
 		var planet = planets[index];
+
 		planet.capacity = planet.population;
 		planet.attackedBy = 0;
-
-		planet.maxRange = -1;
+		planet.distance = 0;
+		planet.validTarget = true;
 
 		planet.t = [];
 		
@@ -124,11 +128,82 @@ var improveModel = function () {
 			planet.t[0] = -1 * planet.population;
 		}
 		
+		planet.state = planet.t[0];
+		
 		for (var i = 1; i <= IA.MAX; i++) {
 			planet.t[i] = 0;
 		}
 
 	}
+}
+
+var computeState = function(planets) {
+	for (var index in IA.galaxy.fleet) {
+		var ship = IA.galaxy.fleet[index];
+		var planet = getById(planets, ship.target.id);
+		
+		var range = getShipRangeInTurn(ship);
+
+		if (planet.owner.id == ship.owner.id && planet.owner.id == id) {
+			planet.state += ship.crew;
+			planet.t[range] += ship.crew;
+		} else if (planet.owner.id != ship.owner.id && planet.owner.id != id) {
+			planet.state += ship.crew;
+			planet.t[range] += ship.crew;
+			planet.attackedBy += ship.crew;
+		} else {
+			planet.state -= ship.crew;
+			planet.t[range] -= ship.crew;
+			planet.attackedBy += ship.crew;
+		}
+	}
+
+	var planets = IA.allPlanets;
+	for (var index in planets) {
+		var planet = planets[index];
+		
+		if (planet.owner.id == id) {
+			planet.capacity -= planet.attackedBy;
+		} else {
+			planet.validTarget = (planet.state <= 0);
+		}
+	}
+}
+
+
+var callForCandidates = function(target) {
+	if (!target.validTarget) {
+		return false;
+	}
+
+	var score = 0;
+
+	for (var i = 0; i <= IA.MAX; i++) {
+		score += target.t[i];
+		
+		if (score > 0) {
+			score += Game.PLANET_GROWTH;
+		} else {
+			score -= Game.PLANET_GROWTH;
+		}
+
+		var myPlanets = _getAtExactRangeInTurn(i, target, IA.myPlanets);
+		for (var index in myPlanets) {
+			var myPlanet = myPlanets[index];
+			
+			if (score <= 0 && myPlanet.id != target.id ) {
+				var wanted = Math.abs(score);
+				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+				if (fleet > 0) {
+					score += fleet;
+					target.distance += i;
+				}
+			}
+		}
+		
+	}
+
+	return score > 0;
 }
 
 var callForFleet = function(target) {
@@ -182,27 +257,6 @@ var getFleet = function (planet, needed, max) {
 	}
 
 	return send;
-}
-
-var computeState = function(planets) {
-	for (var index in IA.galaxy.fleet) {
-		var ship = IA.galaxy.fleet[index];
-		var planet = getById(planets, ship.target.id);
-		
-		var range = getShipRangeInTurn(ship);
-
-		planet.maxRange = Math.max(planet.maxRange, range);
-
-		if (planet.owner.id == ship.owner.id && planet.owner.id == id) {
-			planet.t[range] += ship.crew;
-		} else if (planet.owner.id != ship.owner.id && planet.owner.id != id) {
-			planet.t[range] += ship.crew;
-			planet.attackedBy += ship.crew;
-		} else {
-			planet.t[range] -= ship.crew;
-			planet.attackedBy += ship.crew;
-		}
-	}
 }
 
 var getById = function(collection, id) {
