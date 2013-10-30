@@ -91,6 +91,8 @@ var getOrders = function(context) {
 		result = result.concat(callForOneShotFleet(target));
 	}
 	
+	resetDistance();
+	
 	// Check for other targets
 	
 	candidates = [];
@@ -153,6 +155,14 @@ var improveModel = function () {
 	}
 }
 
+var resetDistance = function () {
+	var planets = IA.allPlanets;
+	for (var index in planets) {
+		var planet = planets[index];
+		planet.distance = 0;
+	}
+}
+
 var computeState = function(planets) {
 	for (var index in IA.galaxy.fleet) {
 		var ship = IA.galaxy.fleet[index];
@@ -211,6 +221,7 @@ var callForOneShotCandidates = function(target) {
 				var wanted = Math.abs(score);
 				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
 				if (fleet >= wanted) {
+					target.distance += i;
 					return true;
 				}
 			}
