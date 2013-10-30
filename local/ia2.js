@@ -73,7 +73,7 @@ var getOrders = function(context) {
 	improveModel();
 	computeState(IA.allPlanets);
 	
-	var candidates = [];
+	var candidatesOS = [];
 
 	// Check for one shot targets
 	
@@ -81,32 +81,35 @@ var getOrders = function(context) {
 	for (var index in IA.allPlanets) {
 		var target = IA.allPlanets[index];
 		if (callForOneShotCandidates(target)) {
-			candidates.push(target);
+			target.os = true;
+			candidatesOS.push(target);
 		}
 	}
 
-	candidates.sort(defenseThenAttack);
-	for (var index in candidates) {
-		var target = candidates[index];
-		result = result.concat(callForOneShotFleet(target));
-	}
-	
 	resetDistance();
 	
 	// Check for other targets
 	
-	candidates = [];
+	candidatesNOS = [];
 	for (var index in IA.allPlanets) {
 		var target = IA.allPlanets[index];
 		if (callForCandidates(target)) {
-			candidates.push(target);
+			candidatesNOS.push(target);
 		}
 	}
+	
+	var candidates = candidatesOS.concat(candidatesNOS);
+	
+	// Attack
 
 	candidates.sort(defenseThenAttack);
 	for (var index in candidates) {
 		var target = candidates[index];
-		result = result.concat(callForFleet(target));
+		if (target.os) {
+			result = result.concat(callForOneShotFleet(target));
+		} else {
+			result = result.concat(callForFleet(target));
+		}
 	}
 	
 	// Check over population
@@ -158,6 +161,7 @@ var improveModel = function () {
 		planet.distance = 0;
 		planet.validTarget = true;
 		planet.overflow = 0;
+		planet.os = false;
 
 		planet.t = [];
 		
@@ -386,8 +390,11 @@ var manageOverflow = function(planet, destinations) {
 	var nearest = getNearestPlanet(planet, destinations);
 	// ne renseigne pas les infos sur le delta pour une range, car il s'agit d'ordres de fin de tour.
 	// Ces données seraient inexploitées par la suite.
-	orders.push(new Order(planet.id, nearest.id, planet.overflow));
-	takeFleet(planet, planet.overflow);
+	var fleet = getFleet(planet, planet.overflow, planet.overflow);
+	if (fleet > 0) {
+		orders.push(new Order(planet.id, nearest.id, fleet));
+		takeFleet(planet, fleet);
+	}
 	
 	return orders;
 }
