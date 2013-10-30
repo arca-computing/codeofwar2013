@@ -109,6 +109,26 @@ var getOrders = function(context) {
 		result = result.concat(callForFleet(target));
 	}
 	
+	// Check over population
+	
+	var overflow = [];
+	var freeSlots = [];
+	
+	var myPlanets = IA.myPlanets;
+	for (var index in myPlanets) {
+		var planet = myPlanets[index];
+		if (isOverflowing(planet)) {
+			overflow.push(planet);
+		} else {
+			freeSlots.push(planet);
+		}
+	}
+
+	for (var index in overflow) {
+		var planet = overflow[index];
+		result = result.concat(manageOverflow(planet, freeSlots));
+	}
+	
 	// results
 	
 	return result;
@@ -137,6 +157,7 @@ var improveModel = function () {
 		planet.attackedBy = 0;
 		planet.distance = 0;
 		planet.validTarget = true;
+		planet.overflow = 0;
 
 		planet.t = [];
 		
@@ -349,6 +370,28 @@ var callForFleet = function(target) {
 	}
 }
 
+var computeOverflow = function(planet) {
+	var nextPopulation = planet.capacity + Game.PLANET_GROWTH + planet.t[1];
+	planet.overflow = nextPopulation - (getMax(planet) - Game.PLANET_GROWTH);
+}
+
+var isOverflowing = function(planet) {
+	computeOverflow(planet);
+	return planet.overflow > 0;
+}
+
+var manageOverflow = function(planet, destinations) {
+	var orders = [];
+	
+	var nearest = getNearestPlanet(planet, destinations);
+	// ne renseigne pas les infos sur le delta pour une range, car il s'agit d'ordres de fin de tour.
+	// Ces données seraient inexploitées par la suite.
+	orders.push(new Order(planet.id, nearest.id, planet.overflow));
+	takeFleet(planet, planet.overflow);
+	
+	return orders;
+}
+
 var getFleet = function (planet, needed, max) {
 	var send = planet.capacity;
 
@@ -420,6 +463,19 @@ var getMax = function (planet) {
 	return PlanetPopulation.getMaxPopulation(planet.size);
 }
 
+var getNearestPlanet = function( source, candidats ) {
+	var result = candidats[ 0 ];
+	var currentDist = GameUtil.getDistanceBetween( new Point( source.x, source.y ), new Point( result.x, result.y ) );
+	for ( var i = 0; i<candidats.length; i++ ) {
+		var element = candidats[ i ];
+		if ( currentDist > GameUtil.getDistanceBetween( new Point( source.x, source.y ), new Point( element.x, element.y ) ) ) {
+			currentDist = GameUtil.getDistanceBetween( new Point( source.x, source.y ), new Point( element.x, element.y ) );
+			result = element;
+		}
+		
+	}
+	return result;
+}
 
 
 /**
