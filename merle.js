@@ -505,4 +505,3 @@ PlanetSize.SMALL = 1;
 PlanetSize.NORMAL = 2;
 PlanetSize.BIG = 3;
 PlanetSize.HUGE = 4;
-
