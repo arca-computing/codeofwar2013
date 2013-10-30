@@ -71,13 +71,29 @@ var getOrders = function(context) {
 	initShips();
 
 	improveModel();
-
-	// Check for snapback
-
 	computeState(IA.allPlanets);
-	IA.allPlanets.sort(defenseThenAttack);
 	
 	var candidates = [];
+
+	// Check for one shot targets
+	
+	IA.allPlanets.sort(defenseThenAttack);
+	for (var index in IA.allPlanets) {
+		var target = IA.allPlanets[index];
+		if (callForOneShotCandidates(target)) {
+			candidates.push(target);
+		}
+	}
+
+	candidates.sort(defenseThenAttack);
+	for (var index in candidates) {
+		var target = candidates[index];
+		result = result.concat(callForOneShotFleet(target));
+	}
+	
+	// Check for other targets
+	
+	candidates = [];
 	for (var index in IA.allPlanets) {
 		var target = IA.allPlanets[index];
 		if (callForCandidates(target)) {
@@ -171,6 +187,40 @@ var computeState = function(planets) {
 }
 
 
+var callForOneShotCandidates = function(target) {
+	if (!target.validTarget) {
+		return false;
+	}
+
+	var score = 0;
+
+	for (var i = 0; i <= IA.MAX; i++) {
+		score += target.t[i];
+		
+		if (score > 0) {
+			score += Game.PLANET_GROWTH;
+		} else {
+			score -= Game.PLANET_GROWTH;
+		}
+
+		var myPlanets = _getAtExactRangeInTurn(i, target, IA.myPlanets);
+		for (var index in myPlanets) {
+			var myPlanet = myPlanets[index];
+			
+			if (myPlanet.id != target.id ) {
+				var wanted = Math.abs(score);
+				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+				if (fleet >= wanted) {
+					return true;
+				}
+			}
+		}
+		
+	}
+
+	return false;
+}
+
 var callForCandidates = function(target) {
 	if (!target.validTarget) {
 		return false;
@@ -206,6 +256,47 @@ var callForCandidates = function(target) {
 	return score > 0;
 }
 
+var callForOneShotFleet = function(target) {
+	var orders = [];
+
+	var score = 0;
+
+	for (var i = 0; i <= IA.MAX; i++) {
+		score += target.t[i];
+		
+		if (score > 0) {
+			score += Game.PLANET_GROWTH;
+		} else {
+			score -= Game.PLANET_GROWTH;
+		}
+
+		var myPlanets = _getAtExactRangeInTurn(i, target, IA.myPlanets);
+		for (var index in myPlanets) {
+			var myPlanet = myPlanets[index];
+			
+			if (score <= 0 && myPlanet.id != target.id ) {
+				var wanted = Math.abs(score);
+				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+				if (fleet >= wanted) {
+					orders.push(new Order(myPlanet.id, target.id, fleet));
+					target.t[i] += fleet;
+					score += fleet;
+					takeFleet(myPlanet, fleet);
+				}
+			}
+		}
+		
+	}
+
+	if (score > 0) {
+		target.validTarget = false;
+		return orders;
+	} else {
+		resetOrders(orders);
+		return [];
+	}
+}
+
 var callForFleet = function(target) {
 	var orders = [];
 
@@ -239,6 +330,7 @@ var callForFleet = function(target) {
 	}
 
 	if (score > 0) {
+		target.validTarget = false;
 		return orders;
 	} else {
 		resetOrders(orders);
