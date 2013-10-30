@@ -39,7 +39,8 @@ onmessage = function(event)
 var IA = {};
 IA.START_PREDICTION_TURN_COUNT = 1;
 IA.MAX_RANGE = 25;
-IA.PREDICTION_TURN_COUNT = 10;
+IA.PREDICTION_TURN_COUNT = 15;
+IA.TURN = -1;
 
 function compareScore(a,b) {
 	if (a.predictions[IA.PREDICTION_TURN_COUNT].score < b.predictions[IA.PREDICTION_TURN_COUNT].score) {
@@ -58,6 +59,8 @@ function compareScore(a,b) {
  * @return result:Array<Order>
 */
 var getOrders = function(context) {
+	IA.TURN++;
+
 	var result = new Array();
 
 	IA.galaxy = context;
@@ -576,7 +579,7 @@ var _getShipsAtRangeInTurnForPlanet = function ( wantedRangeInTurn, planet, ship
 
 	for (var index in ships) {
 		var ship = ships[index];
-		var rangeInTurn = getRangeInTurn(planet, ship);
+		var rangeInTurn = getShipRangeInTurn(ship);
 		if ( rangeInTurn <= wantedRangeInTurn ) {
 			shipsInRange.push(ship);
 		}
@@ -590,7 +593,7 @@ var _getShipsAtExactRangeInTurnForPlanet = function ( wantedRangeInTurn, planet,
 
 	for (var index in ships) {
 		var ship = ships[index];
-		var rangeInTurn = getRangeInTurn(planet, ship);
+		var rangeInTurn = getShipRangeInTurn(ship);
 		if ( rangeInTurn == wantedRangeInTurn ) {
 			shipsInRange.push(ship);
 		}
@@ -604,6 +607,11 @@ var getRangeInTurn = function (source, destination) {
 	var rangeInTurn = Math.ceil(distance / Game.SHIP_SPEED);
 	
 	return rangeInTurn;
+}
+
+var getShipRangeInTurn = function (ship) {
+	var arrivalTurn = ship.creationTurn + ship.travelDuration;
+	return arrivalTurn - IA.TURN;
 }
 
 var getMax = function (planet) {

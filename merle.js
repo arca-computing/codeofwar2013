@@ -162,7 +162,7 @@ var callForFleet = function(target) {
 		}
 		
 	}
-	
+
 	if (score > 0) {
 		return orders;
 	} else {
