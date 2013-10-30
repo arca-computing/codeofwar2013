@@ -39,6 +39,12 @@ onmessage = function(event)
 var IA = {};
 IA.MAX = 100;
 IA.TURN = -1;
+IA.P_COUNTER = 1;
+IA.P_LAST_COUNTER = 1;
+IA.P_LAST_INCREASE_TURN = -1;
+IA.P_WAIT_FOR_CHANGE = 20;
+IA.P_WAIT_FOR_INCREASE = 30;
+IA.P_CURRENT_WAIT = 0;
 
 function defenseThenAttack(a,b) {
 	if (a.owner.id != b.owner.id) {
@@ -72,6 +78,20 @@ var getOrders = function(context) {
 
 	improveModel();
 	computeState(IA.allPlanets);
+	
+	// Gestion des blocages
+	
+	IA.P_COUNTER = IA.myPlanets.length;
+	if (IA.P_COUNTER > IA.P_LAST_COUNTER) {
+		IA.P_LAST_INCREASE_TURN = IA.TURN;
+	}
+	if (IA.TURN - IA.P_LAST_INCREASE_TURN > IA.P_WAIT_FOR_CHANGE && IA.P_CURRENT_WAIT <= 0) {
+		IA.P_CURRENT_WAIT = IA.P_WAIT_FOR_INCREASE;
+	}
+	
+	if (IA.P_CURRENT_WAIT > 0) {
+		invalidOtherPlanets();
+	}
 	
 	var candidatesOS = [];
 
@@ -134,6 +154,14 @@ var getOrders = function(context) {
 	
 	// results
 	
+	IA.P_LAST_COUNTER = IA.P_COUNTER;
+	if (IA.P_CURRENT_WAIT > 0) {
+		IA.P_CURRENT_WAIT--;
+		if (IA.P_CURRENT_WAIT <= 0) {
+			IA.P_LAST_INCREASE_TURN = IA.TURN;
+		}
+	}
+	
 	return result;
 };
 
@@ -185,6 +213,14 @@ var resetDistance = function () {
 	for (var index in planets) {
 		var planet = planets[index];
 		planet.distance = 0;
+	}
+}
+
+var invalidOtherPlanets = function() {
+	var planets = IA.otherPlanets;
+	for (var index in planets) {
+		var planet = planets[index];
+		planet.validTarget = false;
 	}
 }
 
@@ -390,8 +426,11 @@ var manageOverflow = function(planet, destinations) {
 	var nearest = getNearestPlanet(planet, destinations);
 	// ne renseigne pas les infos sur le delta pour une range, car il s'agit d'ordres de fin de tour.
 	// Ces données seraient inexploitées par la suite.
-	orders.push(new Order(planet.id, nearest.id, planet.overflow));
-	takeFleet(planet, planet.overflow);
+	var fleet = getFleet(planet, planet.overflow, planet.overflow);
+	if (fleet > 0) {
+		orders.push(new Order(planet.id, nearest.id, fleet));
+		takeFleet(planet, fleet);
+	}
 	
 	return orders;
 }
