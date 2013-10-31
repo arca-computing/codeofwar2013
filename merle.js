@@ -51,6 +51,7 @@ IA.ENEMY_COUNTER;
 IA.SCORING_MODE = false;
 IA.SCORING_START_COUNTDOWN = false;
 IA.SCORING_COUNTDOWN = 40;
+IA.MAX_SCORING_POPULATION_TARGET = 200;
 
 function defenseThenAttack(a,b) {
 	if (a.owner.id != b.owner.id) {
@@ -295,6 +296,13 @@ var computeState = function(planets) {
 		} else {
 			planet.validTarget = (planet.state <= 0);
 		}
+
+		if (IA.SCORING_MODE
+			&& IA.otherPlanets.length != 1
+			&& planet.population > IA.MAX_SCORING_POPULATION_TARGET
+			&& IA.SCORING_COUNTDOWN > 0) {
+			planet.validTarget = false;
+		}
 	}
 }
 
@@ -370,7 +378,7 @@ var callForCandidates = function(target) {
 }
 
 var callForOneShotFleet = function(target) {
-	if (!target.validTarget) {
+	if (!target.validTarget && target.owner.id != id) {
 		return [];
 	}
 	
@@ -415,7 +423,7 @@ var callForOneShotFleet = function(target) {
 }
 
 var callForFleet = function(target) {
-	if (!target.validTarget) {
+	if (!target.validTarget && target.owner.id != id) {
 		return [];
 	}
 	
@@ -485,7 +493,7 @@ var manageOverflow = function(planet, destinations) {
 					takeFleet(planet, fleet);
 			}
 		}
-		IA.SCORING_COUNTDOWN = 3;
+		IA.SCORING_COUNTDOWN = -1;
 	} else {
 		// ne renseigne pas les infos sur le delta pour une range, car il s'agit d'ordres de fin de tour.
 		// Ces données seraient inexploitées par la suite.
