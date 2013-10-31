@@ -47,6 +47,7 @@ IA.P_WAIT_FOR_CHANGE = 20;
 IA.P_WAIT_FOR_INCREASE = 30;
 IA.P_CURRENT_WAIT = 0;
 IA.ENEMY_ID;
+IA.ENEMY_COUNTER;
 IA.SCORING_MODE = false;
 IA.SCORING_START_COUNTDOWN = false;
 IA.SCORING_COUNTDOWN = 40;
@@ -80,9 +81,12 @@ var getOrders = function(context) {
 	IA.otherPlanets = GameUtil.getEnnemyPlanets(id, context);
 
 	initShips();
+	IA.ENEMY_COUNTER = 1;
 
 	improveModel();
 	computeState(IA.allPlanets);
+	
+	// Identification de l'adversaire
 	
 	if (IA.ENEMY_ID == undefined) {
 		checkEnemyID();
@@ -100,9 +104,6 @@ var getOrders = function(context) {
 	IA.SCORING_START_COUNTDOWN = IA.SCORING_START_COUNTDOWN || (IA.SCORING_MODE && (IA.otherPlanets.length == 1));
 	if (IA.SCORING_START_COUNTDOWN) {
 		IA.SCORING_COUNTDOWN--;
-	}
-	if (IA.SCORING_MODE && IA.SCORING_COUNTDOWN > 0) {
-		invalidPlanets(IA.enemyPlanets);
 	}
 	
 	// Gestion des blocages
@@ -151,6 +152,15 @@ var getOrders = function(context) {
 	candidates.sort(defenseThenAttack);
 	for (var index in candidates) {
 		var target = candidates[index];
+		
+		// Protège la dernière planète ennemie avant la fin de partie
+		if (target.owner.id == IA.ENEMY_ID) {
+			IA.ENEMY_COUNTER++;
+			if (IA.ENEMY_COUNTER >= IA.enemyPlanets.length && IA.SCORING_COUNTDOWN > 0) {
+				target.validTarget = false;
+			}
+		}
+		
 		if (target.os) {
 			result = result.concat(callForOneShotFleet(target));
 		} else {
@@ -360,6 +370,10 @@ var callForCandidates = function(target) {
 }
 
 var callForOneShotFleet = function(target) {
+	if (!target.validTarget) {
+		return [];
+	}
+	
 	var orders = [];
 
 	var score = 0;
@@ -401,6 +415,10 @@ var callForOneShotFleet = function(target) {
 }
 
 var callForFleet = function(target) {
+	if (!target.validTarget) {
+		return [];
+	}
+	
 	var orders = [];
 
 	var score = 0;
@@ -463,8 +481,8 @@ var manageOverflow = function(planet, destinations) {
 				var fleet = getFleet(planet, 5, 5);
 				if (fleet > 0) {
 					orders.push(new Order(planet.id, myPlanet.id, fleet));
-					takeFleet(planet, fleet);
 				}
+					takeFleet(planet, fleet);
 			}
 		}
 		IA.SCORING_COUNTDOWN = 3;
