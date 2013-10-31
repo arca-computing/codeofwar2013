@@ -20,7 +20,7 @@ var color = 0;
 var debugMessage="";
 
 /* Id de l'IA */
-var id = 0;
+var id = 438;
 
 /**
  * @internal method
@@ -293,6 +293,14 @@ var computeState = function(planets) {
 		
 		if (planet.owner.id == id) {
 			planet.capacity -= planet.attackedBy;
+			
+			if (!IA.SCORING_MODE) {
+				var nearestAll = getNearestPlanet(planet, planets);
+				var nearestMine = getNearestPlanet(planet, IA.myPlanets);
+				if (nearestMine.id != nearestAll.id && nearestAll.owner.id == IA.ENEMY_ID) {
+					planet.capacity = Math.floor(planet.capacity / 2);
+				}
+			}
 		} else {
 			planet.validTarget = (planet.state <= 0);
 		}
