@@ -37,6 +37,7 @@ onmessage = function(event)
 
 
 var IA = {};
+IA.LAST_TURN = 500;
 IA.MAX = 100;
 IA.TURN = -1;
 IA.P_COUNTER = 1;
@@ -45,6 +46,10 @@ IA.P_LAST_INCREASE_TURN = -1;
 IA.P_WAIT_FOR_CHANGE = 20;
 IA.P_WAIT_FOR_INCREASE = 30;
 IA.P_CURRENT_WAIT = 0;
+IA.ENEMY_ID;
+IA.SCORING_MODE = false;
+IA.SCORING_START_COUNTDOWN = false;
+IA.SCORING_COUNTDOWN = 40;
 
 function defenseThenAttack(a,b) {
 	if (a.owner.id != b.owner.id) {
@@ -79,6 +84,27 @@ var getOrders = function(context) {
 	improveModel();
 	computeState(IA.allPlanets);
 	
+	if (IA.ENEMY_ID == undefined) {
+		checkEnemyID();
+	}
+	
+	if (IA.ENEMY_ID == undefined) {
+		IA.enemyPlanets = IA.otherPlanets;
+	} else {
+		IA.enemyPlanets = GameUtil.getPlayerPlanets(IA.ENEMY_ID, context);
+	}
+	
+	// Gestion du mode de scoring
+	
+	IA.SCORING_MODE = IA.enemyPlanets.length == 1;
+	IA.SCORING_START_COUNTDOWN = IA.SCORING_START_COUNTDOWN || (IA.SCORING_MODE && (IA.otherPlanets.length == 1));
+	if (IA.SCORING_START_COUNTDOWN) {
+		IA.SCORING_COUNTDOWN--;
+	}
+	if (IA.SCORING_MODE && IA.SCORING_COUNTDOWN > 0) {
+		invalidPlanets(IA.enemyPlanets);
+	}
+	
 	// Gestion des blocages
 	
 	IA.P_COUNTER = IA.myPlanets.length;
@@ -89,8 +115,8 @@ var getOrders = function(context) {
 		IA.P_CURRENT_WAIT = IA.P_WAIT_FOR_INCREASE;
 	}
 	
-	if (IA.P_CURRENT_WAIT > 0) {
-		invalidOtherPlanets();
+	if (IA.P_CURRENT_WAIT > 0 && !IA.SCORING_MODE) {
+		invalidPlanets(IA.otherPlanets);
 	}
 	
 	var candidatesOS = [];
@@ -216,11 +242,16 @@ var resetDistance = function () {
 	}
 }
 
-var invalidOtherPlanets = function() {
-	var planets = IA.otherPlanets;
+var invalidPlanets = function(planets) {
 	for (var index in planets) {
 		var planet = planets[index];
 		planet.validTarget = false;
+	}
+}
+
+var checkEnemyID = function() {
+	if (IA.otherShips.length > 0) {
+		IA.ENEMY_ID = IA.otherShips[0].owner.id;
 	}
 }
 
@@ -423,13 +454,28 @@ var isOverflowing = function(planet) {
 var manageOverflow = function(planet, destinations) {
 	var orders = [];
 	
-	var nearest = getNearestPlanet(planet, destinations);
-	// ne renseigne pas les infos sur le delta pour une range, car il s'agit d'ordres de fin de tour.
-	// Ces données seraient inexploitées par la suite.
-	var fleet = getFleet(planet, planet.overflow, planet.overflow);
-	if (fleet > 0) {
-		orders.push(new Order(planet.id, nearest.id, fleet));
-		takeFleet(planet, fleet);
+	var target = getNearestPlanet(planet, destinations);
+	if (target == undefined) {
+		// Plus de places libres sur les planètes proches, on réparti partout pour limiter les pertes
+		for (var index in IA.myPlanets) {
+			var myPlanet = IA.myPlanets[index];
+			if (myPlanet.id != planet.id) {
+				var fleet = getFleet(planet, 5, 5);
+				if (fleet > 0) {
+					orders.push(new Order(planet.id, myPlanet.id, fleet));
+					takeFleet(planet, fleet);
+				}
+			}
+		}
+		IA.SCORING_COUNTDOWN = 3;
+	} else {
+		// ne renseigne pas les infos sur le delta pour une range, car il s'agit d'ordres de fin de tour.
+		// Ces données seraient inexploitées par la suite.
+		var fleet = getFleet(planet, planet.overflow, planet.overflow);
+		if (fleet > 0) {
+			orders.push(new Order(planet.id, target.id, fleet));
+			takeFleet(planet, fleet);
+		}
 	}
 	
 	return orders;
@@ -461,6 +507,10 @@ var getById = function(collection, id) {
 var takeFleet = function (planet, fleet) {
 	planet.capacity -= fleet;
 	planet.population -= fleet;
+	planet.overflow -= fleet;
+	if (planet.overflow < 0) {
+		planet.overflow = 0;
+	}
 }
 var giveBackFleet = function (planet, fleet) {
 	planet.capacity += fleet;
@@ -507,6 +557,9 @@ var getMax = function (planet) {
 }
 
 var getNearestPlanet = function( source, candidats ) {
+	if (candidats.length == 0) {
+		return;
+	}
 	var result = candidats[ 0 ];
 	var currentDist = GameUtil.getDistanceBetween( new Point( source.x, source.y ), new Point( result.x, result.y ) );
 	for ( var i = 0; i<candidats.length; i++ ) {
@@ -519,7 +572,6 @@ var getNearestPlanet = function( source, candidats ) {
 	}
 	return result;
 }
-
 
 /**
  * @model Galaxy
