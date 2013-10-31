@@ -297,18 +297,20 @@ var computeState = function(planets) {
 			planet.validTarget = (planet.state <= 0);
 		}
 
+		/*
 		if (IA.SCORING_MODE
 			&& IA.otherPlanets.length != 1
 			&& planet.population > IA.MAX_SCORING_POPULATION_TARGET
 			&& IA.SCORING_COUNTDOWN > 0) {
 			planet.validTarget = false;
 		}
+		*/
 	}
 }
 
 
 var callForOneShotCandidates = function(target) {
-	if (!target.validTarget) {
+	if (!target.validTarget && target.owner.id != id) {
 		return false;
 	}
 
@@ -343,7 +345,7 @@ var callForOneShotCandidates = function(target) {
 }
 
 var callForCandidates = function(target) {
-	if (!target.validTarget) {
+	if (!target.validTarget && target.owner.id != id) {
 		return false;
 	}
 
@@ -483,17 +485,18 @@ var manageOverflow = function(planet, destinations) {
 	var target = getNearestPlanet(planet, destinations);
 	if (target == undefined) {
 		// Plus de places libres sur les planètes proches, on réparti partout pour limiter les pertes
-		for (var index in IA.myPlanets) {
-			var myPlanet = IA.myPlanets[index];
+		for (var index in IA.allPlanets) {
+			var myPlanet = IA.allPlanets[index];
 			if (myPlanet.id != planet.id) {
-				var fleet = getFleet(planet, 5, 5);
+				var targetFleet = Math.ceil(myPlanet.overflow / (IA.myPlanets.length - 1));
+				var fleet = getFleet(planet, targetFleet, targetFleet);
 				if (fleet > 0) {
 					orders.push(new Order(planet.id, myPlanet.id, fleet));
-				}
 					takeFleet(planet, fleet);
+				}
 			}
 		}
-		IA.SCORING_COUNTDOWN = -1;
+		IA.SCORING_COUNTDOWN = 5;
 	} else {
 		// ne renseigne pas les infos sur le delta pour une range, car il s'agit d'ordres de fin de tour.
 		// Ces données seraient inexploitées par la suite.
