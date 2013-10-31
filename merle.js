@@ -304,18 +304,8 @@ var computeState = function(planets) {
 		} else {
 			planet.validTarget = (planet.state <= 0);
 		}
-
-		/*
-		if (IA.SCORING_MODE
-			&& IA.otherPlanets.length != 1
-			&& planet.population > IA.MAX_SCORING_POPULATION_TARGET
-			&& IA.SCORING_COUNTDOWN > 0) {
-			planet.validTarget = false;
-		}
-		*/
 	}
 }
-
 
 var callForOneShotCandidates = function(target) {
 	if (!target.validTarget && target.owner.id != id) {
