@@ -20,7 +20,7 @@ var color = 0;
 var debugMessage="";
 
 /* Id de l'IA */
-var id = 438;
+var id = 545;
 
 /**
  * @internal method
@@ -38,7 +38,7 @@ onmessage = function(event)
 
 var IA = {};
 IA.LAST_TURN = 500;
-IA.MAX = 100;
+IA.MAX = 40;
 IA.TURN = -1;
 IA.P_COUNTER = 1;
 IA.P_LAST_COUNTER = 1;
@@ -98,6 +98,7 @@ var getOrders = function(context) {
 	} else {
 		IA.enemyPlanets = GameUtil.getPlayerPlanets(IA.ENEMY_ID, context);
 	}
+	IA.neutralPlanets = getNeutrals(IA.otherPlanets);
 	
 	// Gestion du mode de scoring
 	
@@ -121,11 +122,22 @@ var getOrders = function(context) {
 		invalidPlanets(IA.otherPlanets);
 	}
 	
-	var candidatesOS = [];
-
+	IA.allPlanets.sort(defenseThenAttack);
+	
+	// Check for neutral captured by enemy
+	/*
+	var candidatesBack = [];
+	for (var index in IA.neutralPlanets) {
+		var target = IA.neutralPlanets[index];
+		if (callForSnapbackCandidates(target)) {
+			target.snapback = true;
+			candidatesBack.push(target);
+		}
+	}
+	*/
 	// Check for one shot targets
 	
-	IA.allPlanets.sort(defenseThenAttack);
+	var candidatesOS = [];
 	for (var index in IA.allPlanets) {
 		var target = IA.allPlanets[index];
 		if (callForOneShotCandidates(target)) {
@@ -145,7 +157,10 @@ var getOrders = function(context) {
 			candidatesNOS.push(target);
 		}
 	}
-	
+	/*
+	var candidates = candidatesBack.concat(candidatesOS);
+	candidates = candidates.concat(candidatesNOS);
+	*/
 	var candidates = candidatesOS.concat(candidatesNOS);
 	
 	// Attack
@@ -162,7 +177,9 @@ var getOrders = function(context) {
 			}
 		}
 		
-		if (target.os) {
+		if (target.snapback) {
+			result = result.concat(callFoSnapbackFleet(target));
+		} else if (target.os) {
 			result = result.concat(callForOneShotFleet(target));
 		} else {
 			result = result.concat(callForFleet(target));
@@ -227,8 +244,11 @@ var improveModel = function () {
 		planet.validTarget = true;
 		planet.overflow = 0;
 		planet.os = false;
+		planet.snapback = false;
+		planet.decisiveTurn = 0;
 
 		planet.t = [];
+		planet.c = [];
 		
 		if (planet.owner.id == id) {
 			planet.t[0] = planet.population;
@@ -237,9 +257,11 @@ var improveModel = function () {
 		}
 		
 		planet.state = planet.t[0];
+		planet.c[0] = planet.id == id;
 		
 		for (var i = 1; i <= IA.MAX; i++) {
 			planet.t[i] = 0;
+			planet.c[i] = planet.c[0];
 		}
 
 	}
@@ -304,8 +326,52 @@ var computeState = function(planets) {
 		} else {
 			planet.validTarget = (planet.state <= 0);
 		}
+
+		var score = 0;
+		for (var i = 0; i <= IA.MAX; i++) {
+			score += planet.t[i];
+			
+			if (score > 0) {
+				score += Game.PLANET_GROWTH;
+			} else {
+				score -= Game.PLANET_GROWTH;
+			}
+			
+			planet.c[i] = score > 0;
+		}
+
+		var previous = planet.c[0];
+		var turn = 0;
+		for (var i = 1; i <= IA.MAX; i++) {
+			var current = planet.c[i];
+			if (previous != current) {
+				turn = i;
+				previous = current;
+			}
+		}
+		planet.decisiveTurn = turn;
 	}
+
 }
+
+/*
+var callForSnapbackCandidates = function(target) {
+	if (!target.validTarget && target.owner.id != id) {
+		return false;
+	}
+	
+	var previous = target.c[0];
+	
+	for (var i = 1; i <= IA.MAX; i++) {
+		var current = target.c[i];
+		if (previous != current) {
+			previous = current;
+		}
+	}
+	
+	return !previous;
+}
+*/
 
 var callForOneShotCandidates = function(target) {
 	if (!target.validTarget && target.owner.id != id) {
@@ -377,6 +443,54 @@ var callForCandidates = function(target) {
 	return score > 0;
 }
 
+/*
+var callFoSnapbackFleet = function (target) {
+	if (!target.validTarget && target.owner.id != id) {
+		return [];
+	}
+
+	var orders = [];
+	var score = 0;
+	for (var i = 0; i <= target.decisiveTurn; i++) {
+		score += target.t[i];
+		
+		if (score > 0) {
+			score += Game.PLANET_GROWTH;
+		} else {
+			score -= Game.PLANET_GROWTH;
+		}
+	}
+	
+	var snapbackScore = score;
+	var myPlanets = _getInRangeInTurn(target.decisiveTurn, target, IA.myPlanets);
+	for (var index in myPlanets) {
+		var myPlanet = myPlanets[index];
+		
+		if (snapbackScore <= 0 && myPlanet.id != target.id ) {
+			var wanted = Math.abs(snapbackScore);
+			var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+			if (fleet >= wanted) {
+				orders.push(new Order(myPlanet.id, target.id, fleet));
+				target.t[i] += fleet;
+				snapbackScore += fleet;
+				takeFleet(myPlanet, fleet);
+			}
+		}
+	}
+	
+	if (snapbackScore > 0) {
+		target.validTarget = false;
+		return orders;
+	} else {
+		target.snapback = false;
+		resetOrders(orders);
+		return [];
+	}
+	
+	return [];
+}
+*/
+
 var callForOneShotFleet = function(target) {
 	if (!target.validTarget && target.owner.id != id) {
 		return [];
@@ -395,7 +509,7 @@ var callForOneShotFleet = function(target) {
 			score -= Game.PLANET_GROWTH;
 		}
 
-		var myPlanets = _getAtExactRangeInTurn(i, target, IA.myPlanets);
+		var myPlanets = _getInRangeInTurn(i, target, IA.myPlanets);
 		for (var index in myPlanets) {
 			var myPlanet = myPlanets[index];
 			
@@ -417,6 +531,7 @@ var callForOneShotFleet = function(target) {
 		target.validTarget = false;
 		return orders;
 	} else {
+		target.os = false;
 		resetOrders(orders);
 		return [];
 	}
@@ -567,6 +682,20 @@ var _getAtExactRangeInTurn = function ( wantedRangeInTurn, target, collection ) 
 	return inRange;
 }
 
+var _getInRangeInTurn = function ( wantedRangeInTurn, target, collection ) {
+	var inRange = [];
+
+	for (var index in collection) {
+		var item = collection[index];
+		var rangeInTurn = getRangeInTurn(target, item);
+		if ( rangeInTurn == wantedRangeInTurn ) {
+			inRange.push(item);
+		}
+	}
+	
+	return inRange;
+}
+
 var getRangeInTurn = function (source, destination) {
 	var distance = GameUtil.getDistanceBetween(source, destination);
 	var rangeInTurn = Math.ceil(distance / Game.SHIP_SPEED);
@@ -581,6 +710,19 @@ var getShipRangeInTurn = function (ship) {
 
 var getMax = function (planet) {
 	return PlanetPopulation.getMaxPopulation(planet.size);
+}
+
+var getNeutrals = function (planets) {
+	var neutrals = [];
+	
+	for (var index in planets) {
+		var planet = planets[index];
+		if (planet.id != IA.ENEMY_ID) {
+			neutrals.push(planet);
+		}
+	}
+	
+	return neutrals;
 }
 
 var getNearestPlanet = function( source, candidats ) {
