@@ -44,7 +44,7 @@ IA.P_COUNTER = 1;
 IA.P_LAST_COUNTER = 1;
 IA.P_LAST_INCREASE_TURN = -1;
 IA.P_WAIT_FOR_CHANGE = 20;
-IA.P_WAIT_FOR_INCREASE = 30;
+IA.P_WAIT_FOR_INCREASE = 10;
 IA.P_CURRENT_WAIT = 0;
 IA.ENEMY_ID;
 IA.ENEMY_COUNTER;
@@ -52,6 +52,7 @@ IA.SCORING_MODE = false;
 IA.SCORING_START_COUNTDOWN = false;
 IA.SCORING_COUNTDOWN = 40;
 IA.MAX_SCORING_POPULATION_TARGET = 200;
+IA.OVERFLOW_CAPTURED = 20;
 
 function defenseThenAttack(a,b) {
 	if (a.owner.id != b.owner.id) {
@@ -116,6 +117,7 @@ var getOrders = function(context) {
 	}
 	if (IA.TURN - IA.P_LAST_INCREASE_TURN > IA.P_WAIT_FOR_CHANGE && IA.P_CURRENT_WAIT <= 0) {
 		IA.P_CURRENT_WAIT = IA.P_WAIT_FOR_INCREASE;
+		IA.P_WAIT_FOR_INCREASE += IA.P_WAIT_FOR_INCREASE;
 	}
 	
 	if (IA.P_CURRENT_WAIT > 0 && !IA.SCORING_MODE) {
@@ -124,17 +126,6 @@ var getOrders = function(context) {
 	
 	IA.allPlanets.sort(defenseThenAttack);
 	
-	// Check for neutral captured by enemy
-	/*
-	var candidatesBack = [];
-	for (var index in IA.neutralPlanets) {
-		var target = IA.neutralPlanets[index];
-		if (callForSnapbackCandidates(target)) {
-			target.snapback = true;
-			candidatesBack.push(target);
-		}
-	}
-	*/
 	// Check for one shot targets
 	
 	var candidatesOS = [];
@@ -157,10 +148,7 @@ var getOrders = function(context) {
 			candidatesNOS.push(target);
 		}
 	}
-	/*
-	var candidates = candidatesBack.concat(candidatesOS);
-	candidates = candidates.concat(candidatesNOS);
-	*/
+	
 	var candidates = candidatesOS.concat(candidatesNOS);
 	
 	// Attack
@@ -354,25 +342,6 @@ var computeState = function(planets) {
 
 }
 
-/*
-var callForSnapbackCandidates = function(target) {
-	if (!target.validTarget && target.owner.id != id) {
-		return false;
-	}
-	
-	var previous = target.c[0];
-	
-	for (var i = 1; i <= IA.MAX; i++) {
-		var current = target.c[i];
-		if (previous != current) {
-			previous = current;
-		}
-	}
-	
-	return !previous;
-}
-*/
-
 var callForOneShotCandidates = function(target) {
 	if (!target.validTarget && target.owner.id != id) {
 		return false;
@@ -395,7 +364,7 @@ var callForOneShotCandidates = function(target) {
 			
 			if (myPlanet.id != target.id ) {
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, getMax(target) + 1);
 				if (fleet >= wanted) {
 					target.distance += i;
 					return true;
@@ -430,7 +399,7 @@ var callForCandidates = function(target) {
 			
 			if (score <= 0 && myPlanet.id != target.id ) {
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, getMax(target) + 1);
 				if (fleet > 0) {
 					score += fleet;
 					target.distance += i;
@@ -442,54 +411,6 @@ var callForCandidates = function(target) {
 
 	return score > 0;
 }
-
-/*
-var callFoSnapbackFleet = function (target) {
-	if (!target.validTarget && target.owner.id != id) {
-		return [];
-	}
-
-	var orders = [];
-	var score = 0;
-	for (var i = 0; i <= target.decisiveTurn; i++) {
-		score += target.t[i];
-		
-		if (score > 0) {
-			score += Game.PLANET_GROWTH;
-		} else {
-			score -= Game.PLANET_GROWTH;
-		}
-	}
-	
-	var snapbackScore = score;
-	var myPlanets = _getInRangeInTurn(target.decisiveTurn, target, IA.myPlanets);
-	for (var index in myPlanets) {
-		var myPlanet = myPlanets[index];
-		
-		if (snapbackScore <= 0 && myPlanet.id != target.id ) {
-			var wanted = Math.abs(snapbackScore);
-			var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
-			if (fleet >= wanted) {
-				orders.push(new Order(myPlanet.id, target.id, fleet));
-				target.t[i] += fleet;
-				snapbackScore += fleet;
-				takeFleet(myPlanet, fleet);
-			}
-		}
-	}
-	
-	if (snapbackScore > 0) {
-		target.validTarget = false;
-		return orders;
-	} else {
-		target.snapback = false;
-		resetOrders(orders);
-		return [];
-	}
-	
-	return [];
-}
-*/
 
 var callForOneShotFleet = function(target) {
 	if (!target.validTarget && target.owner.id != id) {
