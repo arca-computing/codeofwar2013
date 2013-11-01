@@ -50,8 +50,7 @@ IA.ENEMY_ID;
 IA.ENEMY_COUNTER;
 IA.SCORING_MODE = false;
 IA.SCORING_START_COUNTDOWN = false;
-IA.SCORING_COUNTDOWN = 40;
-IA.MAX_SCORING_POPULATION_TARGET = 200;
+IA.SCORING_COUNTDOWN = 20;
 IA.OVERFLOW_CAPTURED = 20;
 
 function defenseThenAttack(a,b) {
@@ -419,6 +418,9 @@ var callForOneShotFleet = function(target) {
 			}
 		}
 		
+		if (score <= 0) {
+			orders = [];
+		}
 	}
 
 	if (score > 0) {
@@ -465,6 +467,9 @@ var callForFleet = function(target) {
 			}
 		}
 		
+		if (score <= 0) {
+			orders = [];
+		}
 	}
 
 	if (score > 0) {
