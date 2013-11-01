@@ -336,7 +336,7 @@ var callForOneShotCandidates = function(target) {
 			
 			if (myPlanet.id != target.id ) {
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, getMax(target) + 1);
+				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
 				if (fleet >= wanted) {
 					target.distance += i;
 					return true;
@@ -371,7 +371,7 @@ var callForCandidates = function(target) {
 			
 			if (score <= 0 && myPlanet.id != target.id ) {
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, getMax(target) + 1);
+				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
 				if (fleet > 0) {
 					score += fleet;
 					target.distance += i;
@@ -408,7 +408,7 @@ var callForOneShotFleet = function(target) {
 			
 			if (score <= 0 && myPlanet.id != target.id ) {
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, getMax(target) + 1);
 				if (fleet >= wanted) {
 					orders.push(new Order(myPlanet.id, target.id, fleet));
 					target.t[i] += fleet;
@@ -416,10 +416,6 @@ var callForOneShotFleet = function(target) {
 					takeFleet(myPlanet, fleet);
 				}
 			}
-		}
-		
-		if (score <= 0) {
-			orders = [];
 		}
 	}
 
@@ -457,7 +453,7 @@ var callForFleet = function(target) {
 			
 			if (score <= 0 && myPlanet.id != target.id ) {
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, getMax(target) + 1);
 				if (fleet > 0) {
 					orders.push(new Order(myPlanet.id, target.id, fleet));
 					target.t[i] += fleet;
@@ -465,10 +461,6 @@ var callForFleet = function(target) {
 					takeFleet(myPlanet, fleet);
 				}
 			}
-		}
-		
-		if (score <= 0) {
-			orders = [];
 		}
 	}
 
