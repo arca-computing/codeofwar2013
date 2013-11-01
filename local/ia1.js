@@ -43,7 +43,7 @@ IA.TURN = -1;
 IA.P_COUNTER = 1;
 IA.P_LAST_COUNTER = 1;
 IA.P_LAST_INCREASE_TURN = -1;
-IA.P_WAIT_FOR_CHANGE = 20;
+IA.P_WAIT_FOR_CHANGE = 15;
 IA.P_WAIT_FOR_INCREASE = 10;
 IA.P_CURRENT_WAIT = 0;
 IA.ENEMY_ID;
@@ -99,7 +99,6 @@ var getOrders = function(context) {
 	} else {
 		IA.enemyPlanets = GameUtil.getPlayerPlanets(IA.ENEMY_ID, context);
 	}
-	IA.neutralPlanets = getNeutrals(IA.otherPlanets);
 	
 	// Gestion du mode de scoring
 	
@@ -165,9 +164,7 @@ var getOrders = function(context) {
 			}
 		}
 		
-		if (target.snapback) {
-			result = result.concat(callFoSnapbackFleet(target));
-		} else if (target.os) {
+		if (target.os) {
 			result = result.concat(callForOneShotFleet(target));
 		} else {
 			result = result.concat(callForFleet(target));
@@ -314,30 +311,6 @@ var computeState = function(planets) {
 		} else {
 			planet.validTarget = (planet.state <= 0);
 		}
-
-		var score = 0;
-		for (var i = 0; i <= IA.MAX; i++) {
-			score += planet.t[i];
-			
-			if (score > 0) {
-				score += Game.PLANET_GROWTH;
-			} else {
-				score -= Game.PLANET_GROWTH;
-			}
-			
-			planet.c[i] = score > 0;
-		}
-
-		var previous = planet.c[0];
-		var turn = 0;
-		for (var i = 1; i <= IA.MAX; i++) {
-			var current = planet.c[i];
-			if (previous != current) {
-				turn = i;
-				previous = current;
-			}
-		}
-		planet.decisiveTurn = turn;
 	}
 
 }
@@ -430,7 +403,7 @@ var callForOneShotFleet = function(target) {
 			score -= Game.PLANET_GROWTH;
 		}
 
-		var myPlanets = _getInRangeInTurn(i, target, IA.myPlanets);
+		var myPlanets = _getAtExactRangeInTurn(i, target, IA.myPlanets);
 		for (var index in myPlanets) {
 			var myPlanet = myPlanets[index];
 			
@@ -530,7 +503,9 @@ var manageOverflow = function(planet, destinations) {
 				}
 			}
 		}
-		IA.SCORING_COUNTDOWN = 5;
+		if (IA.SCORING_COUNTDOWN > 5) {
+			IA.SCORING_COUNTDOWN = 5;
+		}
 	} else {
 		// ne renseigne pas les infos sur le delta pour une range, car il s'agit d'ordres de fin de tour.
 		// Ces données seraient inexploitées par la suite.
@@ -603,20 +578,6 @@ var _getAtExactRangeInTurn = function ( wantedRangeInTurn, target, collection ) 
 	return inRange;
 }
 
-var _getInRangeInTurn = function ( wantedRangeInTurn, target, collection ) {
-	var inRange = [];
-
-	for (var index in collection) {
-		var item = collection[index];
-		var rangeInTurn = getRangeInTurn(target, item);
-		if ( rangeInTurn == wantedRangeInTurn ) {
-			inRange.push(item);
-		}
-	}
-	
-	return inRange;
-}
-
 var getRangeInTurn = function (source, destination) {
 	var distance = GameUtil.getDistanceBetween(source, destination);
 	var rangeInTurn = Math.ceil(distance / Game.SHIP_SPEED);
@@ -631,19 +592,6 @@ var getShipRangeInTurn = function (ship) {
 
 var getMax = function (planet) {
 	return PlanetPopulation.getMaxPopulation(planet.size);
-}
-
-var getNeutrals = function (planets) {
-	var neutrals = [];
-	
-	for (var index in planets) {
-		var planet = planets[index];
-		if (planet.id != IA.ENEMY_ID) {
-			neutrals.push(planet);
-		}
-	}
-	
-	return neutrals;
 }
 
 var getNearestPlanet = function( source, candidats ) {
