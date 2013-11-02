@@ -54,6 +54,7 @@ IA.SCORING_COUNTDOWN = 50;
 IA.OVERFLOW_CAPTURED = 20;
 IA.MIN_PLANET_COUNT = 3;
 IA.DELTA_PLANETS = 2;
+IA.PERCENTIL = 80;
 
 
 function defenseThenAttack(a,b) {
@@ -132,7 +133,7 @@ var getOrders = function(context) {
 		IA.P_LAST_INCREASE_TURN = IA.TURN;
 	}
 	
-	if (IA.P_CURRENT_WAIT > 0 && !IA.SCORING_MODE) {
+	if (IA.P_CURRENT_WAIT > 0 && !IA.SCORING_MODE && !overCapacity()) {
 		invalidPlanets(IA.otherPlanets);
 	}
 	
@@ -642,6 +643,17 @@ var getNearestPlanet = function( source, candidats ) {
 		
 	}
 	return result;
+}
+
+var overCapacity = function() {
+	for (var index in IA.myPlanets) {
+		var planet = IA.myPlanets[index];
+		if (!Math.ceil(planet.population / getMax(planet) * 100) > IA.PERCENTIL) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 /**
