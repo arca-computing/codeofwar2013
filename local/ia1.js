@@ -199,7 +199,28 @@ var getOrders = function(context) {
 			IA.P_LAST_INCREASE_TURN = IA.TURN;
 		}
 	}
-	
+
+    if(IA.otherPlanets.length == 2){
+        result = new Array();
+        for(var j = 0; j < IA.myPlanets.length; j++){
+            var myPlanet = IA.myPlanets[j];
+            result.push(new Order(myPlanet.id,IA.otherPlanets[0].id,Math.ceil(myPlanet.population/4)));
+        }
+        for (var index in overflow) {
+            var planet = overflow[index];
+            result = result.concat(manageOverflow(planet, freeSlots));
+        }
+    }
+
+    if(IA.otherPlanets.length == 1){
+        for (var index in overflow) {
+            var planet = overflow[index];
+            result = result.concat(manageOverflow(planet, freeSlots));
+        }
+    }
+
+    debugMessage+=JSON.stringify(result);
+
 	return result;
 };
 
