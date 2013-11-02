@@ -20,7 +20,7 @@ var color = 0;
 var debugMessage="";
 
 /* Id de l'IA */
-var id = 438;
+var id = 545;
 
 /**
  * @internal method
@@ -38,20 +38,20 @@ onmessage = function(event)
 
 var IA = {};
 IA.LAST_TURN = 500;
-IA.MAX = 100;
+IA.MAX = 40;
 IA.TURN = -1;
 IA.P_COUNTER = 1;
 IA.P_LAST_COUNTER = 1;
 IA.P_LAST_INCREASE_TURN = -1;
-IA.P_WAIT_FOR_CHANGE = 20;
-IA.P_WAIT_FOR_INCREASE = 30;
+IA.P_WAIT_FOR_CHANGE = 15;
+IA.P_WAIT_FOR_INCREASE = 10;
 IA.P_CURRENT_WAIT = 0;
 IA.ENEMY_ID;
 IA.ENEMY_COUNTER;
 IA.SCORING_MODE = false;
 IA.SCORING_START_COUNTDOWN = false;
-IA.SCORING_COUNTDOWN = 40;
-IA.MAX_SCORING_POPULATION_TARGET = 200;
+IA.SCORING_COUNTDOWN = 50;
+IA.OVERFLOW_CAPTURED = 20;
 
 function defenseThenAttack(a,b) {
 	if (a.owner.id != b.owner.id) {
@@ -115,17 +115,18 @@ var getOrders = function(context) {
 	}
 	if (IA.TURN - IA.P_LAST_INCREASE_TURN > IA.P_WAIT_FOR_CHANGE && IA.P_CURRENT_WAIT <= 0) {
 		IA.P_CURRENT_WAIT = IA.P_WAIT_FOR_INCREASE;
+		IA.P_WAIT_FOR_INCREASE += IA.P_WAIT_FOR_INCREASE;
 	}
 	
 	if (IA.P_CURRENT_WAIT > 0 && !IA.SCORING_MODE) {
 		invalidPlanets(IA.otherPlanets);
 	}
 	
-	var candidatesOS = [];
-
+	IA.allPlanets.sort(defenseThenAttack);
+	
 	// Check for one shot targets
 	
-	IA.allPlanets.sort(defenseThenAttack);
+	var candidatesOS = [];
 	for (var index in IA.allPlanets) {
 		var target = IA.allPlanets[index];
 		if (callForOneShotCandidates(target)) {
@@ -155,7 +156,8 @@ var getOrders = function(context) {
 		var target = candidates[index];
 		
 		// Protège la dernière planète ennemie avant la fin de partie
-		if (target.owner.id == IA.ENEMY_ID) {
+		
+		if (target.owner.id == IA.ENEMY_ID && target.validTarget == true) {
 			IA.ENEMY_COUNTER++;
 			if (IA.ENEMY_COUNTER >= IA.enemyPlanets.length && IA.SCORING_COUNTDOWN > 0) {
 				target.validTarget = false;
@@ -190,7 +192,8 @@ var getOrders = function(context) {
 	}
 	
 	// results
-	
+
+		
 	IA.P_LAST_COUNTER = IA.P_COUNTER;
 	if (IA.P_CURRENT_WAIT > 0) {
 		IA.P_CURRENT_WAIT--;
@@ -198,9 +201,10 @@ var getOrders = function(context) {
 			IA.P_LAST_INCREASE_TURN = IA.TURN;
 		}
 	}
-	
+
 	return result;
 };
+
 
 var initShips = function() {
 	IA.myShips = [];
@@ -227,8 +231,11 @@ var improveModel = function () {
 		planet.validTarget = true;
 		planet.overflow = 0;
 		planet.os = false;
+		planet.snapback = false;
+		planet.decisiveTurn = 0;
 
 		planet.t = [];
+		planet.c = [];
 		
 		if (planet.owner.id == id) {
 			planet.t[0] = planet.population;
@@ -237,9 +244,11 @@ var improveModel = function () {
 		}
 		
 		planet.state = planet.t[0];
+		planet.c[0] = planet.id == id;
 		
 		for (var i = 1; i <= IA.MAX; i++) {
 			planet.t[i] = 0;
+			planet.c[i] = planet.c[0];
 		}
 
 	}
@@ -305,6 +314,7 @@ var computeState = function(planets) {
 			planet.validTarget = (planet.state <= 0);
 		}
 	}
+
 }
 
 var callForOneShotCandidates = function(target) {
@@ -401,7 +411,7 @@ var callForOneShotFleet = function(target) {
 			
 			if (score <= 0 && myPlanet.id != target.id ) {
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, getMax(target) + 1);
 				if (fleet >= wanted) {
 					orders.push(new Order(myPlanet.id, target.id, fleet));
 					target.t[i] += fleet;
@@ -410,13 +420,13 @@ var callForOneShotFleet = function(target) {
 				}
 			}
 		}
-		
 	}
 
 	if (score > 0) {
 		target.validTarget = false;
 		return orders;
 	} else {
+		target.os = false;
 		resetOrders(orders);
 		return [];
 	}
@@ -446,7 +456,7 @@ var callForFleet = function(target) {
 			
 			if (score <= 0 && myPlanet.id != target.id ) {
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, getMax(target) + 1);
 				if (fleet > 0) {
 					orders.push(new Order(myPlanet.id, target.id, fleet));
 					target.t[i] += fleet;
@@ -455,7 +465,6 @@ var callForFleet = function(target) {
 				}
 			}
 		}
-		
 	}
 
 	if (score > 0) {
@@ -494,7 +503,9 @@ var manageOverflow = function(planet, destinations) {
 				}
 			}
 		}
-		IA.SCORING_COUNTDOWN = 5;
+		if (IA.SCORING_COUNTDOWN > 5) {
+			IA.SCORING_COUNTDOWN = 5;
+		}
 	} else {
 		// ne renseigne pas les infos sur le delta pour une range, car il s'agit d'ordres de fin de tour.
 		// Ces données seraient inexploitées par la suite.

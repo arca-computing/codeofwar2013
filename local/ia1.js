@@ -50,8 +50,11 @@ IA.ENEMY_ID;
 IA.ENEMY_COUNTER;
 IA.SCORING_MODE = false;
 IA.SCORING_START_COUNTDOWN = false;
-IA.SCORING_COUNTDOWN = 20;
+IA.SCORING_COUNTDOWN = 50;
 IA.OVERFLOW_CAPTURED = 20;
+IA.MIN_PLANET_COUNT = 3;
+IA.DELTA_PLANETS = 2;
+
 
 function defenseThenAttack(a,b) {
 	if (a.owner.id != b.owner.id) {
@@ -97,6 +100,13 @@ var getOrders = function(context) {
 		IA.enemyPlanets = IA.otherPlanets;
 	} else {
 		IA.enemyPlanets = GameUtil.getPlayerPlanets(IA.ENEMY_ID, context);
+	}
+	IA.neutralPlanets = getNeutralPlanets(IA.otherPlanets);
+
+	// Evite les attaques trop audacieuses
+
+	if (IA.myPlanets.length >= IA.MIN_PLANET_COUNT && IA.myPlanets.length - IA.DELTA_PLANETS < IA.enemyPlanets.length) {
+		invalidPlanets(IA.neutralPlanets);
 	}
 	
 	// Gestion du mode de scoring
@@ -157,7 +167,7 @@ var getOrders = function(context) {
 		
 		// Protège la dernière planète ennemie avant la fin de partie
 		
-		if (target.owner.id == IA.ENEMY_ID) {
+		if (target.owner.id == IA.ENEMY_ID && target.validTarget == true) {
 			IA.ENEMY_COUNTER++;
 			if (IA.ENEMY_COUNTER >= IA.enemyPlanets.length && IA.SCORING_COUNTDOWN > 0) {
 				target.validTarget = false;
@@ -201,30 +211,6 @@ var getOrders = function(context) {
 			IA.P_LAST_INCREASE_TURN = IA.TURN;
 		}
 	}
-
-
-	IA.enemyPlanets.sort(defenseThenAttack);
-    	if(IA.enemyPlanets.length == 2) {
-		var target = IA.enemyPlanets[0];
-        	result = new Array();
-        	for(var j = 0; j < IA.myPlanets.length; j++){
-			var myPlanet = IA.myPlanets[j];
-			var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
-			result.push(new Order(myPlanet.id, target.id, fleet));
-        	}
-        	for (var index in overflow) {
-			var planet = overflow[index];
-			result = result.concat(manageOverflow(planet, freeSlots));
-		}
-    	}
-
-   	if(IA.enemyPlanets.length == 1){
-		for (var index in overflow) {
-		var planet = overflow[index];
-		result = result.concat(manageOverflow(planet, freeSlots));
-        }
-    }
-
 
 	return result;
 };
@@ -616,6 +602,19 @@ var getShipRangeInTurn = function (ship) {
 
 var getMax = function (planet) {
 	return PlanetPopulation.getMaxPopulation(planet.size);
+}
+
+var getNeutralPlanets = function (planets) {
+	var neutrals = [];
+
+	for (var index in planets) {
+		var planet = planets[index];
+		if (planet.owner.id != id && planet.owner.id != IA.ENEMY_ID) {
+			neutrals.push(planet);
+		}
+	}
+
+	return neutrals;
 }
 
 var getNearestPlanet = function( source, candidats ) {

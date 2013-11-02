@@ -50,7 +50,7 @@ IA.ENEMY_ID;
 IA.ENEMY_COUNTER;
 IA.SCORING_MODE = false;
 IA.SCORING_START_COUNTDOWN = false;
-IA.SCORING_COUNTDOWN = 20;
+IA.SCORING_COUNTDOWN = 50;
 IA.OVERFLOW_CAPTURED = 20;
 
 function defenseThenAttack(a,b) {
@@ -201,31 +201,6 @@ var getOrders = function(context) {
 			IA.P_LAST_INCREASE_TURN = IA.TURN;
 		}
 	}
-
-/*
-	IA.enemyPlanets.sort(defenseThenAttack);
-    	if(IA.enemyPlanets.length == 2) {
-		var target = IA.enemyPlanets[0];
-        	result = new Array();
-        	for(var j = 0; j < IA.myPlanets.length; j++){
-			var myPlanet = IA.myPlanets[j];
-			var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
-			result.push(new Order(myPlanet.id, target.id, fleet));
-        	}
-        	for (var index in overflow) {
-			var planet = overflow[index];
-			result = result.concat(manageOverflow(planet, freeSlots));
-		}
-    	}
-
-   	if(IA.enemyPlanets.length == 1){
-		for (var index in overflow) {
-			var planet = overflow[index];
-			result = result.concat(manageOverflow(planet, freeSlots));
-        	}
-
-  	  }
-*/
 
 	return result;
 };
