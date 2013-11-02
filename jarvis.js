@@ -531,6 +531,9 @@ var manageOverflow = function(planet, destinations) {
 			orders.push(new Order(planet.id, target.id, fleet));
 			takeFleet(planet, fleet);
 		}
+		if (IA.P_CURRENT_WAIT > 0) {
+			IA.P_CURRENT_WAIT = -1;
+		}
 	}
 	
 	return orders;
