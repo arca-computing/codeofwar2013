@@ -195,7 +195,7 @@ var getOrders = function(context) {
 		var planet = myPlanets[index];
 		if (isOverflowing(planet)) {
 			overflow.push(planet);
-		} else {
+		} else if (planet.population < getMax(planet)) {
 			freeSlots.push(planet);
 		}
 	}
@@ -425,7 +425,7 @@ var callForOneShotFleet = function(target) {
 			
 			if (score <= 0 && myPlanet.id != target.id ) {
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, getMax(target) + 1);
+				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, wanted + getMax(target));
 				if (fleet >= wanted) {
 					orders.push(new Order(myPlanet.id, target.id, fleet));
 					target.t[i] += fleet;
@@ -470,7 +470,7 @@ var callForFleet = function(target) {
 			
 			if (score <= 0 && myPlanet.id != target.id ) {
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, getMax(target) + 1);
+				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, wanted + getMax(target));
 				if (fleet > 0) {
 					orders.push(new Order(myPlanet.id, target.id, fleet));
 					target.t[i] += fleet;
@@ -516,6 +516,9 @@ var manageOverflow = function(planet, destinations) {
 					takeFleet(planet, fleet);
 				}
 			}
+		}
+		if (IA.P_CURRENT_WAIT > 0) {
+			IA.P_CURRENT_WAIT = -1;
 		}
 		if (IA.SCORING_COUNTDOWN > 5) {
 			IA.SCORING_COUNTDOWN = 5;
