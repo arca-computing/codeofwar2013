@@ -84,6 +84,7 @@ var getOrders = function(context) {
 	IA.allPlanets = context.content;
 	IA.myPlanets = GameUtil.getPlayerPlanets(id, context );
 	IA.otherPlanets = GameUtil.getEnnemyPlanets(id, context);
+	IA.overCapacity = overCapacity();
 
 	initShips();
 	IA.ENEMY_COUNTER = 1;
@@ -132,8 +133,13 @@ var getOrders = function(context) {
 	if (IA.P_CURRENT_WAIT <= 0) {
 		IA.P_LAST_INCREASE_TURN = IA.TURN;
 	}
+
+	if (IA.overCapacity) {
+		IA.P_CURRENT_WAIT = -1;
+		IA.SCORING_COUNTDOWN = -1;
+	}
 	
-	if (IA.P_CURRENT_WAIT > 0 && !IA.SCORING_MODE && !overCapacity()) {
+	if (IA.P_CURRENT_WAIT > 0 && !IA.SCORING_MODE) {
 		invalidPlanets(IA.otherPlanets);
 	}
 	
@@ -172,7 +178,7 @@ var getOrders = function(context) {
 		
 		// Protège la dernière planète ennemie avant la fin de partie
 		
-		if (target.owner.id == IA.ENEMY_ID && target.validTarget == true) {
+		if (target.owner.id == IA.ENEMY_ID && target.validTarget == true && !IA.overCapacity) {
 			IA.ENEMY_COUNTER++;
 			if (IA.ENEMY_COUNTER >= IA.enemyPlanets.length && IA.SCORING_COUNTDOWN > 0) {
 				target.validTarget = false;
