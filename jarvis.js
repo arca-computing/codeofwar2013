@@ -156,7 +156,8 @@ var getOrders = function(context) {
 		var target = candidates[index];
 		
 		// Protège la dernière planète ennemie avant la fin de partie
-		if (target.owner.id == IA.ENEMY_ID) {
+		
+		if (target.owner.id == IA.ENEMY_ID && target.validTarget == true) {
 			IA.ENEMY_COUNTER++;
 			if (IA.ENEMY_COUNTER >= IA.enemyPlanets.length && IA.SCORING_COUNTDOWN > 0) {
 				target.validTarget = false;
@@ -191,7 +192,8 @@ var getOrders = function(context) {
 	}
 	
 	// results
-	
+
+		
 	IA.P_LAST_COUNTER = IA.P_COUNTER;
 	if (IA.P_CURRENT_WAIT > 0) {
 		IA.P_CURRENT_WAIT--;
@@ -199,9 +201,35 @@ var getOrders = function(context) {
 			IA.P_LAST_INCREASE_TURN = IA.TURN;
 		}
 	}
-	
+
+/*
+	IA.enemyPlanets.sort(defenseThenAttack);
+    	if(IA.enemyPlanets.length == 2) {
+		var target = IA.enemyPlanets[0];
+        	result = new Array();
+        	for(var j = 0; j < IA.myPlanets.length; j++){
+			var myPlanet = IA.myPlanets[j];
+			var fleet = getFleet(myPlanet, wanted + 1, getMax(target) + 1);
+			result.push(new Order(myPlanet.id, target.id, fleet));
+        	}
+        	for (var index in overflow) {
+			var planet = overflow[index];
+			result = result.concat(manageOverflow(planet, freeSlots));
+		}
+    	}
+
+   	if(IA.enemyPlanets.length == 1){
+		for (var index in overflow) {
+			var planet = overflow[index];
+			result = result.concat(manageOverflow(planet, freeSlots));
+        	}
+
+  	  }
+*/
+
 	return result;
 };
+
 
 var initShips = function() {
 	IA.myShips = [];
