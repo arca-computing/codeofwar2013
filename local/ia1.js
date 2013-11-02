@@ -127,6 +127,10 @@ var getOrders = function(context) {
 		IA.P_CURRENT_WAIT = IA.P_WAIT_FOR_INCREASE;
 		IA.P_WAIT_FOR_INCREASE += IA.P_WAIT_FOR_INCREASE;
 	}
+
+	if (IA.P_CURRENT_WAIT <= 0) {
+		IA.P_LAST_INCREASE_TURN = IA.TURN;
+	}
 	
 	if (IA.P_CURRENT_WAIT > 0 && !IA.SCORING_MODE) {
 		invalidPlanets(IA.otherPlanets);

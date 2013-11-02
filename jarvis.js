@@ -52,6 +52,9 @@ IA.SCORING_MODE = false;
 IA.SCORING_START_COUNTDOWN = false;
 IA.SCORING_COUNTDOWN = 50;
 IA.OVERFLOW_CAPTURED = 20;
+IA.MIN_PLANET_COUNT = 3;
+IA.DELTA_PLANETS = 2;
+
 
 function defenseThenAttack(a,b) {
 	if (a.owner.id != b.owner.id) {
@@ -98,6 +101,13 @@ var getOrders = function(context) {
 	} else {
 		IA.enemyPlanets = GameUtil.getPlayerPlanets(IA.ENEMY_ID, context);
 	}
+	IA.neutralPlanets = getNeutralPlanets(IA.otherPlanets);
+
+	// Evite les attaques trop audacieuses
+
+	if (IA.myPlanets.length >= IA.MIN_PLANET_COUNT && IA.myPlanets.length - IA.DELTA_PLANETS < IA.enemyPlanets.length) {
+		invalidPlanets(IA.neutralPlanets);
+	}
 	
 	// Gestion du mode de scoring
 	
@@ -116,6 +126,10 @@ var getOrders = function(context) {
 	if (IA.TURN - IA.P_LAST_INCREASE_TURN > IA.P_WAIT_FOR_CHANGE && IA.P_CURRENT_WAIT <= 0) {
 		IA.P_CURRENT_WAIT = IA.P_WAIT_FOR_INCREASE;
 		IA.P_WAIT_FOR_INCREASE += IA.P_WAIT_FOR_INCREASE;
+	}
+
+	if (IA.P_CURRENT_WAIT <= 0) {
+		IA.P_LAST_INCREASE_TURN = IA.TURN;
 	}
 	
 	if (IA.P_CURRENT_WAIT > 0 && !IA.SCORING_MODE) {
@@ -592,6 +606,19 @@ var getShipRangeInTurn = function (ship) {
 
 var getMax = function (planet) {
 	return PlanetPopulation.getMaxPopulation(planet.size);
+}
+
+var getNeutralPlanets = function (planets) {
+	var neutrals = [];
+
+	for (var index in planets) {
+		var planet = planets[index];
+		if (planet.owner.id != id && planet.owner.id != IA.ENEMY_ID) {
+			neutrals.push(planet);
+		}
+	}
+
+	return neutrals;
 }
 
 var getNearestPlanet = function( source, candidats ) {
