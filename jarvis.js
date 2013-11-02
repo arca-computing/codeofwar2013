@@ -51,7 +51,7 @@ IA.ENEMY_COUNTER;
 IA.SCORING_MODE = false;
 IA.SCORING_START_COUNTDOWN = false;
 IA.SCORING_COUNTDOWN = 50;
-IA.OVERFLOW_CAPTURED = 20;
+IA.OVERFLOW_CAPTURED = 0;
 IA.MIN_PLANET_COUNT = 3;
 IA.DELTA_PLANETS = 2;
 IA.PERCENTIL = 80;
@@ -145,6 +145,18 @@ var getOrders = function(context) {
 	
 	IA.allPlanets.sort(defenseThenAttack);
 	
+	// Check defense
+
+	candidatesDef = [];
+	for (var index in IA.myPlanets) {
+		var target = IA.myPlanets[index];
+		if (callForCandidates(target)) {
+			candidatesDef.push(target);
+		}
+	}
+	
+	resetDistance();
+	
 	// Check for one shot targets
 	
 	var candidatesOS = [];
@@ -168,7 +180,7 @@ var getOrders = function(context) {
 		}
 	}
 	
-	var candidates = candidatesOS.concat(candidatesNOS);
+	var candidates = candidatesDef.concat(candidatesOS).concat(candidatesNOS);
 	
 	// Attack
 
@@ -328,7 +340,7 @@ var computeState = function(planets) {
 				var nearestAll = getNearestPlanet(planet, planets);
 				var nearestMine = getNearestPlanet(planet, IA.myPlanets);
 				if (nearestMine.id != nearestAll.id && nearestAll.owner.id == IA.ENEMY_ID) {
-					planet.capacity = Math.floor(planet.capacity / 2);
+					planet.capacity -= nearestAll.population;
 				}
 			}
 		} else {
@@ -431,8 +443,12 @@ var callForOneShotFleet = function(target) {
 			var myPlanet = myPlanets[index];
 			
 			if (score <= 0 && myPlanet.id != target.id ) {
+				var captureOverflow = IA.OVERFLOW_CAPTURED;
+				if (target.owner.id == id) {
+					captureOverflow = 0;
+				}
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, wanted + getMax(target));
+				var fleet = getFleet(myPlanet, wanted + 1 + captureOverflow, wanted + getMax(target));
 				if (fleet >= wanted) {
 					orders.push(new Order(myPlanet.id, target.id, fleet));
 					target.t[i] += fleet;
@@ -476,8 +492,12 @@ var callForFleet = function(target) {
 			var myPlanet = myPlanets[index];
 			
 			if (score <= 0 && myPlanet.id != target.id ) {
+				var captureOverflow = IA.OVERFLOW_CAPTURED;
+				if (target.owner.id == id) {
+					captureOverflow = 0;
+				}
 				var wanted = Math.abs(score);
-				var fleet = getFleet(myPlanet, wanted + 1 + IA.OVERFLOW_CAPTURED, wanted + getMax(target));
+				var fleet = getFleet(myPlanet, wanted + 1 + captureOverflow, wanted + getMax(target));
 				if (fleet > 0) {
 					orders.push(new Order(myPlanet.id, target.id, fleet));
 					target.t[i] += fleet;
@@ -554,6 +574,9 @@ var getFleet = function (planet, needed, max) {
 	}
 	if (send > max) {
 		send = max;
+	}
+	if (send < 0) {
+		send = 0;
 	}
 
 	return send;
